@@ -136,7 +136,6 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 </div>
 <div class="divider"></div>
 <div class="group">
-<!-- Кнопка смены имени УДАЛЕНА -->
 <button id="inviteBtn" class="success" title="Пригласить учеников"><i class="fa-solid fa-user-plus"></i></button>
 <div class="dropdown">
 <button title="Файл"><i class="fa-solid fa-floppy-disk"></i></button>
@@ -228,19 +227,25 @@ let tool='pen',shape='rect',drawing=false,panning=false,space=false,offX=0,offY=
 const GRID=24,snap=v=>snapOn?Math.round(v/GRID)*GRID:v;
 window.addEventListener('contextmenu',e=>e.preventDefault());
 
+// КАСТОМНЫЕ КУРСОРЫ (SVG)
+const cursors = {
+    pen: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%231e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, crosshair`,
+    highlighter: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23eab308" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, crosshair`,
+    eraser: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)" stroke="%234f46e5" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>') 12 12, cell`,
+    laser: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="%23ef4444" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>') 12 12, crosshair`
+};
+
 // КУРСОРЫ
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
 
-// ОКНО ВХОДА (ВСЕГДА ПРИ ЗАГРУЗКЕ)
+// ОКНО ВХОДА
 let myName = '';
 
 function showNameModal() {
     $('nameModal').style.display = 'flex';
     setTimeout(() => $('nameInput').focus(), 150);
 }
-
-// Показываем окно сразу при загрузке страницы
 showNameModal();
 
 function saveName() {
@@ -249,7 +254,6 @@ function saveName() {
     $('nameModal').style.display = 'none';
     toast(`Привет, ${myName}!`, 'success');
 }
-
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
 
@@ -309,14 +313,23 @@ function animateLaser(){lx.clearRect(0,0,lc.width,lc.height);lasers=lasers.filte
 socket.on('laser',d=>{remoteLasers[d.sender]={sx:d.x*scale+offX,sy:d.y*scale+offY,r:6,life:100};});
 
 function setTool(t){
-tool=t;document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));if(t==='shape')$('shapeMenu').classList.add('active');else $(t)?.classList.add('active');
-const m=t==='move';c.style.pointerEvents=m?'none':'auto';document.querySelectorAll('.obj-wrapper').forEach(o=>o.style.pointerEvents=m?'auto':'none');c.style.cursor=m?'grab':(t==='eraser'?'cell':(t==='laser'?'none':'crosshair'));
-$('ctxBar').style.display=(t==='move'||t==='laser')?'none':'flex';
-$('ctxColor').style.display=(t==='eraser')?'none':'flex';
-$('ctxDraw').style.display=(['pen','highlighter','eraser'].includes(t))?'flex':'none';
-$('ctxText').style.display=(['text','sticker'].includes(t))?'flex':'none';
-$('ctxShape').style.display=(t==='shape')?'flex':'none';
-updSliders();
+    tool=t;document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));
+    if(t==='shape')$('shapeMenu').classList.add('active');else $(t)?.classList.add('active');
+    const m=t==='move';c.style.pointerEvents=m?'none':'auto';
+    document.querySelectorAll('.obj-wrapper').forEach(o=>o.style.pointerEvents=m?'auto':'none');
+    
+    if (m) c.style.cursor = 'grab';
+    else if (t === 'eraser') c.style.cursor = cursors.eraser;
+    else if (t === 'laser') c.style.cursor = cursors.laser;
+    else if (t === 'highlighter') c.style.cursor = cursors.highlighter;
+    else c.style.cursor = cursors.pen;
+
+    $('ctxBar').style.display=(t==='move'||t==='laser')?'none':'flex';
+    $('ctxColor').style.display=(t==='eraser')?'none':'flex';
+    $('ctxDraw').style.display=(['pen','highlighter','eraser'].includes(t))?'flex':'none';
+    $('ctxText').style.display=(['text','sticker'].includes(t))?'flex':'none';
+    $('ctxShape').style.display=(t==='shape')?'flex':'none';
+    updSliders();
 }
 ['move','pen','highlighter','laser','eraser','sticker','text'].forEach(t=>$(t).onclick=()=>setTool(t));$('image').onclick=()=>$('imageInput').click();
 
@@ -368,7 +381,13 @@ else if(draft){draft.x2=snap(p.x);draft.y2=snap(p.y);redraw();}}
 window.addEventListener('mouseup',()=>{
 if(draft){lines.push(draft);emit('draw',draft);undo.push({type:'line',data:draft});redo=[];updUndo();draft=null;redraw();}
 else if(drawing&&strokeLines.length){undo.push({type:'pen',id:strokeId,data:[...strokeLines]});redo=[];updUndo();strokeLines=[];}
-drawing=false;panning=false;c.style.cursor=tool==='move'?'grab':(tool==='eraser'?'cell':(tool==='laser'?'none':'crosshair'));
+drawing=false;panning=false;
+
+if (tool === 'move') c.style.cursor = 'grab';
+else if (tool === 'eraser') c.style.cursor = cursors.eraser;
+else if (tool === 'laser') c.style.cursor = cursors.laser;
+else if (tool === 'highlighter') c.style.cursor = cursors.highlighter;
+else c.style.cursor = cursors.pen;
 });
 
 function updUndo(){if(undo.length>50)undo.shift();$('undoBtn').disabled=!undo.length;$('redoBtn').disabled=!redo.length;}
