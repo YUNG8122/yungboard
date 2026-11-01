@@ -75,25 +75,26 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 .emoji-btn{font-size:22px;padding:6px;background:0 0;border-radius:8px;cursor:pointer;width:100%;height:100%}
 .emoji-btn:hover{background:var(--bg);transform:scale(1.1)}
 
-/* СТИЛИ КРАСИВОГО ОКНА ВХОДА */
-#nameModal{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9999}
-.name-box{flex-direction:column;padding:30px;gap:15px;width:90%;max-width:400px;text-align:center;animation:slideIn .3s ease}
-.name-box h2{margin:0;font-size:22px;color:var(--t)}
-.name-box p{margin:0;font-size:14px;color:var(--tm)}
-.name-box input{width:100%;padding:12px;border-radius:8px;border:1px solid var(--b);background:var(--bg);color:var(--t);font-size:16px;outline:0;transition:border .2s;text-align:center}
-.name-box input:focus{border-color:var(--p)}
-.name-box button{background:var(--p);color:#fff;padding:12px;border-radius:8px;font-size:16px;font-weight:600;width:100%;margin-top:5px;cursor:pointer;transition:background .2s}
-.name-box button:hover{background:#4338ca}
+/* СТИЛИ ОКНА ВХОДА */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:9999}
+.modal-content{background:var(--ps);border-radius:24px;padding:40px;width:90%;max-width:400px;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);border:1px solid var(--b);animation:popIn .4s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+@keyframes popIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-content h2{margin:0 0 10px;font-size:24px;color:var(--t)}
+.modal-content p{margin:0 0 25px;font-size:15px;color:var(--tm)}
+.modal-content input{width:100%;padding:15px 20px;border-radius:12px;border:2px solid var(--b);background:var(--bg);color:var(--t);font-size:16px;outline:0;transition:all .2s;text-align:center;margin-bottom:20px;font-weight:500}
+.modal-content input:focus{border-color:var(--p);background:var(--ps);box-shadow:0 0 0 4px var(--pl)}
+.modal-content button{background:var(--p);color:#fff;padding:16px;border-radius:12px;font-size:16px;font-weight:600;width:100%;cursor:pointer;transition:all .2s;border:none}
+.modal-content button:hover{background:#4338ca;transform:translateY(-2px);box-shadow:0 10px 20px -10px var(--p)}
 </style>
 </head>
 <body>
 
-<!-- ОКНО ВВОДА ИМЕНИ -->
-<div id="nameModal">
-    <div class="glass name-box">
-        <h2>Добро пожаловать!</h2>
-        <p>Как вас зовут? (Это увидят другие участники)</p>
-        <input type="text" id="nameInput" placeholder="Например: Мария" maxlength="20">
+<!-- КРАСИВОЕ ОКНО ВВОДА ИМЕНИ -->
+<div id="nameModal" class="modal-overlay">
+    <div class="modal-content">
+        <h2><i class="fa-solid fa-hand-sparkles" style="color:var(--p);margin-bottom:10px;display:block;font-size:32px"></i> Добро пожаловать!</h2>
+        <p>Представьтесь, чтобы другие участники видели, кто вы.</p>
+        <input type="text" id="nameInput" placeholder="Ваше имя (например: Мария)" maxlength="20" autocomplete="off">
         <button id="nameSubmit">Войти на доску</button>
     </div>
 </div>
@@ -135,6 +136,8 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 </div>
 <div class="divider"></div>
 <div class="group">
+<!-- КНОПКА СМЕНЫ ИМЕНИ -->
+<button id="userBtn" title="Сменить имя" style="color:var(--p)"><i class="fa-solid fa-user-pen"></i></button>
 <button id="inviteBtn" class="success" title="Пригласить учеников"><i class="fa-solid fa-user-plus"></i></button>
 <div class="dropdown">
 <button title="Файл"><i class="fa-solid fa-floppy-disk"></i></button>
@@ -230,12 +233,19 @@ window.addEventListener('contextmenu',e=>e.preventDefault());
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
 
-// ОКНО ВХОДА
+// ОКНО ВХОДА И ЛОГИКА ИМЕНИ
 let myName = localStorage.getItem('yb_name');
-if (!myName) {
+
+function showNameModal() {
+    $('nameInput').value = myName || '';
     $('nameModal').style.display = 'flex';
-    setTimeout(() => $('nameInput').focus(), 150);
+    setTimeout(() => $('nameInput').focus(), 100);
 }
+
+if (!myName) {
+    showNameModal();
+}
+
 function saveName() {
     const val = $('nameInput').value.trim();
     myName = val || 'Гость';
@@ -243,8 +253,10 @@ function saveName() {
     $('nameModal').style.display = 'none';
     toast(`Привет, ${myName}!`, 'success');
 }
+
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
+$('userBtn').onclick = showNameModal; // Кнопка смены имени в тулбаре
 
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
