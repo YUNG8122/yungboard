@@ -89,7 +89,7 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 </head>
 <body>
 
-<!-- КРАСИВОЕ ОКНО ВВОДА ИМЕНИ -->
+<!-- ОКНО ВВОДА ИМЕНИ -->
 <div id="nameModal" class="modal-overlay">
     <div class="modal-content">
         <h2><i class="fa-solid fa-hand-sparkles" style="color:var(--p);margin-bottom:10px;display:block;font-size:32px"></i> Добро пожаловать!</h2>
@@ -227,6 +227,10 @@ let tool='pen',shape='rect',drawing=false,panning=false,space=false,offX=0,offY=
 const GRID=24,snap=v=>snapOn?Math.round(v/GRID)*GRID:v;
 window.addEventListener('contextmenu',e=>e.preventDefault());
 
+// Безопасная обертка для localStorage (чтобы Firefox не ломал сайт)
+function safeSetStorage(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
+function safeGetStorage(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
+
 // КАСТОМНЫЕ КУРСОРЫ (SVG)
 const cursors = {
     pen: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%231e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, crosshair`,
@@ -240,19 +244,20 @@ const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
 
 // ОКНО ВХОДА
-let myName = '';
+let myName = safeGetStorage('yb_name') || '';
 
 function showNameModal() {
     $('nameModal').style.display = 'flex';
     setTimeout(() => $('nameInput').focus(), 150);
 }
-showNameModal();
+if(!myName) showNameModal();
 
 function saveName() {
     const val = $('nameInput').value.trim();
     myName = val || 'Гость';
+    safeSetStorage('yb_name', myName);
     $('nameModal').style.display = 'none';
-    toast(`Привет, ${myName}!`, 'success');
+    if(typeof toast === 'function') toast(`Привет, ${myName}!`, 'success');
 }
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
@@ -288,9 +293,9 @@ function updCursor(sid){
     el.style.top=(remotePos[sid].y*scale+offY)+'px';
 }
 
-if(localStorage.getItem('yb_theme')==='dark')document.body.classList.add('dark');
+if(safeGetStorage('yb_theme')==='dark') document.body.classList.add('dark');
 const syncTheme=()=>$('themeBtn').innerHTML=document.body.classList.contains('dark')?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';
-syncTheme();$('themeBtn').onclick=()=>{document.body.classList.toggle('dark');localStorage.setItem('yb_theme',document.body.classList.contains('dark')?'dark':'light');syncTheme();};
+syncTheme();$('themeBtn').onclick=()=>{document.body.classList.toggle('dark');safeSetStorage('yb_theme',document.body.classList.contains('dark')?'dark':'light');syncTheme();};
 const toast=(m,t='info')=>{const e=document.createElement('div');e.className='toast '+t;e.textContent=m;$('toasts').appendChild(e);setTimeout(()=>e.remove(),3000);};
 
 const bgs=[{t:'none',c:'none'},{t:'dots',c:'radial-gradient(circle,var(--g) 1.5px,transparent 1.5px)',s:24},{t:'grid',c:'linear-gradient(to right,var(--g) 1px,transparent 1px),linear-gradient(to bottom,var(--g) 1px,transparent 1px)',s:24},{t:'lines',c:'repeating-linear-gradient(to bottom,transparent 0px,transparent 29px,var(--g) 29px,var(--g) 30px)',s:30}];
