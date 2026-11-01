@@ -233,7 +233,7 @@ window.addEventListener('contextmenu',e=>e.preventDefault());
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
 
-// ОКНО ВХОДА И ЛОГИКА ИМЕНИ
+// ОКНО ВХОДА
 let myName = localStorage.getItem('yb_name');
 
 function showNameModal() {
@@ -256,7 +256,7 @@ function saveName() {
 
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
-$('userBtn').onclick = showNameModal; // Кнопка смены имени в тулбаре
+$('userBtn').onclick = showNameModal;
 
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
