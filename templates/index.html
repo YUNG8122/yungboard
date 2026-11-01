@@ -75,7 +75,6 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 .emoji-btn{font-size:22px;padding:6px;background:0 0;border-radius:8px;cursor:pointer;width:100%;height:100%}
 .emoji-btn:hover{background:var(--bg);transform:scale(1.1)}
 
-/* СТИЛИ ОКНА ВХОДА */
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:9999}
 .modal-content{background:var(--ps);border-radius:24px;padding:40px;width:90%;max-width:400px;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);border:1px solid var(--b);animation:popIn .4s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
 @keyframes popIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
@@ -89,7 +88,6 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 </head>
 <body>
 
-<!-- ОКНО ВВОДА ИМЕНИ -->
 <div id="nameModal" class="modal-overlay">
     <div class="modal-content">
         <h2><i class="fa-solid fa-hand-sparkles" style="color:var(--p);margin-bottom:10px;display:block;font-size:32px"></i> Добро пожаловать!</h2>
@@ -212,11 +210,15 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 const $=id=>document.getElementById(id),c=$('canvas'),x=c.getContext('2d'),lc=$('laserCanvas'),lx=lc.getContext('2d'),ol=$('objectsLayer'),vp=$('viewport'),socket=io();
 const q=new URLSearchParams(location.search); let room=q.get('room')||Math.random().toString(36).substring(2,8);
 if(!q.get('room')) window.history.replaceState(null,'','?room='+room);
-const emit=(ev,d)=>socket.emit(ev,{...d,room});
-socket.emit('join',{room});
 
+const emit=(ev,d)=>socket.emit(ev,{...d,room});
+
+// Правильная генерация ссылки
 $('inviteBtn').onclick=()=>{
-    const u=location.href, t=document.createElement("textarea");
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set('room', room);
+    const u = url.toString();
+    const t=document.createElement("textarea");
     t.value=u; document.body.appendChild(t); t.select();
     try{ document.execCommand('copy'); toast('Ссылка скопирована! Отправь ученикам.','success'); }
     catch(e){ prompt('Скопируй вручную:', u); }
@@ -227,11 +229,11 @@ let tool='pen',shape='rect',drawing=false,panning=false,space=false,offX=0,offY=
 const GRID=24,snap=v=>snapOn?Math.round(v/GRID)*GRID:v;
 window.addEventListener('contextmenu',e=>e.preventDefault());
 
-// Безопасная обертка для localStorage (чтобы Firefox не ломал сайт)
+// Защита localStorage
 function safeSetStorage(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
 function safeGetStorage(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
 
-// КАСТОМНЫЕ КУРСОРЫ (SVG)
+// Кастомные курсоры
 const cursors = {
     pen: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%231e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, crosshair`,
     highlighter: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23eab308" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 2 22, crosshair`,
@@ -239,28 +241,29 @@ const cursors = {
     laser: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="%23ef4444" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>') 12 12, crosshair`
 };
 
-// КУРСОРЫ
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
-
-// ОКНО ВХОДА
 let myName = safeGetStorage('yb_name') || '';
 
 function showNameModal() {
     $('nameModal').style.display = 'flex';
     setTimeout(() => $('nameInput').focus(), 150);
 }
-if(!myName) showNameModal();
-
 function saveName() {
     const val = $('nameInput').value.trim();
     myName = val || 'Гость';
     safeSetStorage('yb_name', myName);
     $('nameModal').style.display = 'none';
-    if(typeof toast === 'function') toast(`Привет, ${myName}!`, 'success');
+    socket.emit('join',{room, name: myName});
+    toast(`Привет, ${myName}!`, 'success');
 }
+if(myName) socket.emit('join',{room, name: myName});
+else showNameModal();
+
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
+
+socket.on('user_joined', name => { toast(`${name} присоединился`, 'success'); });
 
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
