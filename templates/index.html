@@ -136,8 +136,7 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 </div>
 <div class="divider"></div>
 <div class="group">
-<!-- КНОПКА СМЕНЫ ИМЕНИ -->
-<button id="userBtn" title="Сменить имя" style="color:var(--p)"><i class="fa-solid fa-user-pen"></i></button>
+<!-- Кнопка смены имени УДАЛЕНА -->
 <button id="inviteBtn" class="success" title="Пригласить учеников"><i class="fa-solid fa-user-plus"></i></button>
 <div class="dropdown">
 <button title="Файл"><i class="fa-solid fa-floppy-disk"></i></button>
@@ -233,30 +232,26 @@ window.addEventListener('contextmenu',e=>e.preventDefault());
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
 
-// ОКНО ВХОДА
-let myName = localStorage.getItem('yb_name');
+// ОКНО ВХОДА (ВСЕГДА ПРИ ЗАГРУЗКЕ)
+let myName = '';
 
 function showNameModal() {
-    $('nameInput').value = myName || '';
     $('nameModal').style.display = 'flex';
-    setTimeout(() => $('nameInput').focus(), 100);
+    setTimeout(() => $('nameInput').focus(), 150);
 }
 
-if (!myName) {
-    showNameModal();
-}
+// Показываем окно сразу при загрузке страницы
+showNameModal();
 
 function saveName() {
     const val = $('nameInput').value.trim();
     myName = val || 'Гость';
-    localStorage.setItem('yb_name', myName);
     $('nameModal').style.display = 'none';
     toast(`Привет, ${myName}!`, 'success');
 }
 
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
-$('userBtn').onclick = showNameModal;
 
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
