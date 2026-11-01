@@ -205,16 +205,22 @@ let tool='pen',shape='rect',drawing=false,panning=false,space=false,offX=0,offY=
 const GRID=24,snap=v=>snapOn?Math.round(v/GRID)*GRID:v;
 window.addEventListener('contextmenu',e=>e.preventDefault());
 
-// КУРСОРЫ
+// КУРСОРЫ (с вводом имени)
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+let myName = localStorage.getItem('yb_name');
+if(!myName) {
+    myName = prompt('Как вас зовут?', 'Ученик');
+    if(!myName || myName.trim()==='') myName = 'Гость';
+    localStorage.setItem('yb_name', myName);
+}
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
     const now=Date.now();
     if(now-lastCursor>50){
         lastCursor=now;
         const p=getPos(e.clientX,e.clientY);
-        emit('cursor_move',{x:p.x,y:p.y,color:myColor});
+        emit('cursor_move',{x:p.x,y:p.y,color:myColor,name:myName});
     }
 });
 socket.on('cursor_move',d=>{
@@ -222,7 +228,7 @@ socket.on('cursor_move',d=>{
     if(!remoteCursors[d.sender]){
         const el=document.createElement('div');
         el.className='remote-cursor';
-        el.innerHTML=`<svg width="24" height="24" viewBox="0 0 24 24" fill="${d.color}" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg><div class="cursor-label" style="background:${d.color}">Гость</div>`;
+        el.innerHTML=`<svg width="24" height="24" viewBox="0 0 24 24" fill="${d.color}" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg><div class="cursor-label" style="background:${d.color}">${d.name}</div>`;
         cursorsLayer.appendChild(el);
         remoteCursors[d.sender]=el;
     }
