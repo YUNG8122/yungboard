@@ -6,7 +6,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=10e6)
 
-ROOMS = {}
+ROOMS = {} # {room: {'lines':[], 'objects':{}, 'camera':{'offX':0,'offY':0,'scale':1}}}
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -15,27 +15,35 @@ def index(): return render_template('index.html')
 def on_join(data):
     room = data.get('room', 'main')
     join_room(room)
-    if room not in ROOMS: ROOMS[room] = {'lines': [], 'objects': {}}
+    if room not in ROOMS:
+        ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}}
     
-    # Оповещаем всех, что кто-то зашел
+    # Отправляем новому пользователю текущее состояние и положение камеры
+    emit('load_state', {
+        'lines': ROOMS[room]['lines'],
+        'objects': ROOMS[room]['objects'],
+        'camera': ROOMS[room]['camera']
+    }, to=request.sid)
+    
     if data.get('name'):
         emit('user_joined', data.get('name'), to=room, include_self=False)
-        
-    emit('load_state', ROOMS[room], to=request.sid)
 
-@socketio.on('laser')
-def on_laser(data):
-    data['sender'] = request.sid
-    emit('laser', data, to=data['room'], include_self=False)
+@socketio.on('camera_move')
+def on_camera_move(data):
+    room = data.get('room')
+    if room in ROOMS:
+        ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
+    emit('camera_move', data, to=room, include_self=False)
 
 @socketio.on('cursor_move')
 def on_cursor_move(data):
     data['sender'] = request.sid
     emit('cursor_move', data, to=data['room'], include_self=False)
 
-@socketio.on('disconnect')
-def on_disconnect(): 
-    emit('user_left', request.sid, broadcast=True)
+@socketio.on('laser')
+def on_laser(data):
+    data['sender'] = request.sid
+    emit('laser', data, to=data['room'], include_self=False)
 
 @socketio.on('draw')
 def on_draw(data):
@@ -73,7 +81,7 @@ def on_obj_delete(data):
 
 @socketio.on('clear_all')
 def on_clear_all(data):
-    if data['room'] in ROOMS: ROOMS[data['room']] = {'lines': [], 'objects': {}}
+    if data['room'] in ROOMS: ROOMS[data['room']] = {'lines': [], 'objects': {}, 'camera': ROOMS[data['room']]['camera']}
     emit('clear_all', {}, to=data['room'], include_self=False)
 
 @socketio.on('load_project')
@@ -81,7 +89,10 @@ def on_load_project(data):
     if data['room'] in ROOMS:
         ROOMS[data['room']]['lines'] = data.get('lines', [])
         ROOMS[data['room']]['objects'] = {o['id']: o for o in data.get('objects', [])}
-        emit('load_state', ROOMS[data['room']], to=data['room'])
+        emit('load_state', {'lines': ROOMS[data['room']]['lines'], 'objects': ROOMS[data['room']]['objects'], 'camera': ROOMS[data['room']]['camera']}, to=data['room'])
+
+@socketio.on('disconnect')
+def on_disconnect(): emit('user_left', request.sid, broadcast=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
