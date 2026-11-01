@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>YUNGBOARD</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{--p:#4f46e5;--pl:#e0e7ff;--bg:#f1f5f9;--pn:rgba(255,255,255,.9);--ps:#fff;--t:#1e293b;--tm:#64748b;--b:rgba(203,213,225,.8);--sh:0 10px 30px -10px rgba(0,0,0,.15);--d:#ef4444;--s:#10b981;--cb:#fff;--g:#94a3b8}
+body.dark{--p:#818cf8;--pl:#312e81;--bg:#0f172a;--pn:rgba(30,41,59,.9);--ps:#1e293b;--t:#f8fafc;--tm:#94a3b8;--b:rgba(51,65,85,.8);--sh:0 10px 30px -10px rgba(0,0,0,.5);--cb:#1e293b;--g:#475569}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);overflow:hidden;color:var(--t);transition:background .3s}
+.glass{background:var(--pn);backdrop-filter:blur(12px);border-radius:16px;box-shadow:var(--sh);border:1px solid var(--b);display:flex;align-items:center;gap:8px;padding:6px 10px;z-index:100}
+#topBar{position:absolute;top:15px;left:50%;transform:translateX(-50%);max-width:96vw;flex-wrap:wrap;justify-content:center}
+#ctxBar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);max-width:95vw;flex-wrap:wrap;justify-content:center;padding:8px 16px;display:none}
+.logo{font-weight:800;font-size:16px;background:linear-gradient(135deg,#6366f1,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:0 10px;user-select:none}
+.divider{width:1px;height:24px;background:var(--b);margin:0 4px}
+button{background:0 0;border:0;padding:8px;border-radius:8px;cursor:pointer;color:var(--tm);font-size:16px;transition:all .2s;display:flex;align-items:center;justify-content:center;width:36px;height:36px}
+button:hover{background:var(--ps);color:var(--t);box-shadow:0 2px 5px rgba(0,0,0,.05)}
+button.active{background:var(--pl)!important;color:var(--p)!important}
+button.danger{color:var(--d)}button.danger:hover{background:#fee2e2;color:var(--d)}
+button.success{color:var(--s)}button.success:hover{background:#d1fae5;color:var(--s)}
+button:disabled{opacity:.3;cursor:not-allowed;background:0 0!important;box-shadow:none!important}
+.group{display:flex;gap:2px;padding:2px;background:var(--bg);border-radius:10px}
+.dropdown{position:relative}
+.dropdown-content{display:none;position:absolute;top:130%;left:0;background:var(--ps);min-width:190px;box-shadow:var(--sh);border-radius:12px;border:1px solid var(--b);overflow:hidden;z-index:200;padding:4px}
+.dropdown-content button{width:100%;justify-content:flex-start;padding:10px 12px;border-radius:6px;font-size:14px;height:auto;gap:10px}
+.show{display:block!important}
+#viewport{position:absolute;inset:0;overflow:hidden;background-color:var(--cb);transition:background .3s}
+#canvas{display:block;background:0 0;touch-action:none;position:absolute;top:0;left:0;z-index:2}
+#laserCanvas{display:block;background:0 0;touch-action:none;position:absolute;top:0;left:0;z-index:3;pointer-events:none}
+#objectsLayer{position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;pointer-events:none;z-index:1}
+.swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s}
+.swatch:hover{transform:scale(1.15)}
+.swatch.selected{border-color:var(--p);transform:scale(1.15);box-shadow:0 0 0 2px var(--ps)}
+input[type="color"]{width:26px;height:26px;padding:0;border:0;border-radius:50%;cursor:pointer;overflow:hidden;background:0 0}
+input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+input[type="color"]::-webkit-color-swatch{border:0;border-radius:50%}
+input[type="range"]{-webkit-appearance:none;width:80px;height:6px;border-radius:3px;background:var(--b);outline:0;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--p);cursor:pointer;transition:transform .1s;box-shadow:0 2px 5px rgba(0,0,0,.2);margin-top:-5px}
+input[type="range"]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+select,input[type="number"]{padding:6px 8px;border-radius:8px;background:var(--ps);color:var(--t);border:1px solid var(--b);font-size:13px;font-weight:500;outline:0;cursor:pointer;transition:border .2s}
+select:hover,input[type="number"]:hover{border-color:var(--p)}
+input[type="number"]{width:45px;text-align:center;cursor:text}
+#zoomControls{position:absolute;bottom:100px;right:20px;display:flex;flex-direction:column;padding:4px;gap:2px;z-index:100}
+#zoomControls button{border-radius:8px;width:40px}
+#timerBox{position:absolute;top:80px;left:50%;transform:translateX(-50%);padding:10px 20px;gap:12px;font-size:20px;font-weight:800;color:var(--p);display:none;z-index:100}
+#timerBox input{width:45px;padding:4px;font-size:16px;font-weight:700;color:var(--p)}
+#hint{position:absolute;bottom:20px;left:20px;padding:8px 16px;border-radius:20px;font-size:12px;color:var(--tm);pointer-events:none;z-index:10;font-weight:500}
+.obj-wrapper::before{content:'';position:absolute;inset:-40px;z-index:-1}
+.drag-handle,.delete-btn,.resize-handle,.rotate-handle{opacity:0;pointer-events:none;transition:opacity .15s;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,.15);z-index:10}
+.obj-wrapper:hover .delete-btn,.obj-wrapper:hover .drag-handle,.obj-wrapper:hover .resize-handle,.obj-wrapper:hover .rotate-handle{opacity:1;pointer-events:auto}
+.drag-handle{position:absolute;top:-30px;left:0;background:var(--p);color:#fff;padding:6px 12px;border-radius:8px 8px 0 0;font-size:12px;cursor:grab}
+.delete-btn{position:absolute;top:-12px;right:-12px;width:28px;height:28px;background:var(--d);color:#fff;border-radius:50%;cursor:pointer;font-size:14px}
+.resize-handle{position:absolute;bottom:-8px;right:-8px;width:18px;height:18px;background:var(--ps);border:3px solid var(--p);border-radius:50%;cursor:nwse-resize}
+.rotate-handle{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:28px;height:28px;background:var(--p);color:#fff;border-radius:50%;cursor:grab;font-size:12px}
+.obj-sticker{position:absolute;width:180px;height:180px;background:#fef08a;color:#1e293b;box-shadow:0 10px 25px -5px rgba(0,0,0,.2);padding:16px;box-sizing:border-box;display:flex;flex-direction:column;border-radius:8px}
+.obj-sticker .content{flex-grow:1;outline:0;overflow:auto;cursor:text;line-height:1.3;font-weight:500}
+.obj-image{position:absolute;border:2px dashed transparent;box-sizing:border-box;border-radius:12px}
+.obj-image:hover{border-color:var(--p)}
+.obj-image img{width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;border-radius:12px}
+.obj-text{position:absolute;min-width:50px;padding:5px}
+.obj-text .content{outline:0;white-space:pre;cursor:text;font-weight:600;line-height:1.2}
+#toasts{position:fixed;top:90px;right:20px;z-index:1000;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:var(--ps);color:var(--t);padding:12px 20px;border-radius:12px;box-shadow:var(--sh);border-left:4px solid var(--p);animation:slideIn .3s cubic-bezier(.175,.885,.32,1.275);font-size:14px;font-weight:500;pointer-events:auto}
+.toast.success{border-left-color:var(--s)}.toast.error{border-left-color:var(--d)}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+#emojiPicker{position:fixed;background:var(--ps);border:1px solid var(--b);border-radius:16px;padding:12px;box-shadow:var(--sh);display:none;z-index:500;max-width:320px}
+#emojiPicker.show{display:block}
+.emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.emoji-btn{font-size:22px;padding:6px;background:0 0;border-radius:8px;cursor:pointer;width:100%;height:100%}
+.emoji-btn:hover{background:var(--bg);transform:scale(1.1)}
+</style>
+</head>
+<body>
+<div id="topBar" class="glass">
+<div class="logo"><i class="fa-solid fa-wand-magic-sparkles"></i> YUNGBOARD</div>
+<div class="divider"></div>
+<div class="group">
+<button id="move" class="tool" title="Перемещение"><i class="fa-solid fa-hand"></i></button>
+<button id="pen" class="tool active" title="Ручка"><i class="fa-solid fa-pen"></i></button>
+<button id="highlighter" class="tool" title="Маркер"><i class="fa-solid fa-highlighter"></i></button>
+<button id="eraser" class="tool" title="Ластик"><i class="fa-solid fa-eraser"></i></button>
+<button id="laser" class="tool" title="Указка"><i class="fa-solid fa-crosshairs"></i></button>
+</div>
+<div class="divider"></div>
+<div class="group">
+<div class="dropdown">
+<button id="shapeMenu" title="Фигуры"><i class="fa-solid fa-shapes"></i></button>
+<div id="shapeDrop" class="dropdown-content">
+<button data-shape="line"><i class="fa-solid fa-slash"></i> Линия</button>
+<button data-shape="rect"><i class="fa-regular fa-square"></i> Квадрат</button>
+<button data-shape="circle"><i class="fa-regular fa-circle"></i> Круг</button>
+<button data-shape="triangle"><i class="fa-solid fa-play" style="transform:rotate(-90deg)"></i> Треугольник</button>
+<button data-shape="arrow"><i class="fa-solid fa-arrow-right"></i> Стрелка</button>
+<button data-shape="star"><i class="fa-solid fa-star"></i> Звезда</button>
+<button data-shape="diamond"><i class="fa-regular fa-gem"></i> Ромб</button>
+<button data-shape="hexagon"><i class="fa-solid fa-hexagon-nodes"></i> Шестиугольник</button>
+</div>
+</div>
+<button id="sticker" class="tool" title="Стикер"><i class="fa-solid fa-note-sticky" style="color:#eab308"></i></button>
+<button id="text" class="tool" title="Текст"><i class="fa-solid fa-font"></i></button>
+<button id="image" title="Картинка"><i class="fa-regular fa-image" style="color:#10b981"></i></button>
+<button id="emojiBtn" title="Эмодзи"><i class="fa-regular fa-face-smile" style="color:#ec4899"></i></button>
+</div>
+<div class="divider"></div>
+<div class="group">
+<button id="undoBtn" disabled title="Отменить"><i class="fa-solid fa-rotate-left"></i></button>
+<button id="redoBtn" disabled title="Вернуть"><i class="fa-solid fa-rotate-right"></i></button>
+</div>
+<div class="divider"></div>
+<div class="group">
+<button id="inviteBtn" class="success" title="Пригласить учеников"><i class="fa-solid fa-user-plus"></i></button>
+<div class="dropdown">
+<button title="Файл"><i class="fa-solid fa-floppy-disk"></i></button>
+<div id="fileMenu" class="dropdown-content">
+<button id="exportBtn"><i class="fa-solid fa-file-export"></i> Экспорт JSON</button>
+<button id="importBtn"><i class="fa-solid fa-file-import"></i> Импорт JSON</button>
+<button id="saveBtn" style="color:var(--s)"><i class="fa-solid fa-download"></i> Скачать PNG</button>
+</div>
+</div>
+<button id="timerBtn" title="Таймер"><i class="fa-regular fa-clock"></i></button>
+<button id="themeBtn" title="Тема"><i class="fa-solid fa-moon"></i></button>
+<button id="clearBtn" class="danger" title="Очистить"><i class="fa-solid fa-trash"></i></button>
+</div>
+</div>
+
+<div id="ctxBar" class="glass">
+<div id="ctxColor" class="group">
+<div class="swatch selected" data-color="#1e293b" style="background:#1e293b"></div>
+<div class="swatch" data-color="#ef4444" style="background:#ef4444"></div>
+<div class="swatch" data-color="#f97316" style="background:#f97316"></div>
+<div class="swatch" data-color="#eab308" style="background:#eab308"></div>
+<div class="swatch" data-color="#10b981" style="background:#10b981"></div>
+<div class="swatch" data-color="#06b6d4" style="background:#06b6d4"></div>
+<div class="swatch" data-color="#3b82f6" style="background:#3b82f6"></div>
+<div class="swatch" data-color="#a855f7" style="background:#a855f7"></div>
+<div class="swatch" data-color="#ec4899" style="background:#ec4899"></div>
+<input type="color" id="colorPicker" value="#1e293b" title="Свой цвет">
+</div>
+<div id="ctxDraw" class="group" style="display:flex;align-items:center;padding:4px 8px">
+<i class="fa-solid fa-circle" style="font-size:10px;color:var(--tm)"></i>
+<input type="range" id="brushSize" min="1" max="40" value="3" style="margin:0 8px">
+<i class="fa-solid fa-droplet" style="font-size:12px;color:var(--tm)"></i>
+<input type="range" id="opacity" min="10" max="100" value="100" style="margin-left:8px">
+</div>
+<div id="ctxText" class="group" style="display:none;align-items:center;padding:4px 8px">
+<select id="fontFamily">
+<option value="Segoe UI">Segoe UI</option><option value="Arial">Arial</option><option value="Impact">Impact</option><option value="Comic Sans MS">Comic Sans</option><option value="Courier New">Courier</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times</option><option value="Verdana">Verdana</option>
+</select>
+<input type="number" id="fontSize" min="8" max="120" value="24" style="margin-left:8px">
+</div>
+<div id="ctxShape" class="group" style="display:none;align-items:center;padding:4px 8px">
+<button id="styleSolid" class="line-style active" data-style="solid" title="Сплошная"><i class="fa-solid fa-minus"></i></button>
+<button id="styleDashed" class="line-style" data-style="dashed" title="Пунктир"><i class="fa-solid fa-ellipsis"></i></button>
+<button id="styleDotted" class="line-style" data-style="dotted" title="Точки"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+<button id="fillBtn" title="Заливка" style="margin-left:8px"><i class="fa-solid fa-fill-drip"></i></button>
+</div>
+<div class="divider"></div>
+<button id="snapBtn" title="Сетка"><i class="fa-solid fa-border-all"></i></button>
+<button id="bgBtn" title="Фон"><i class="fa-solid fa-palette"></i></button>
+</div>
+
+<div id="timerBox" class="glass">
+<i class="fa-regular fa-clock"></i>
+<input type="number" id="tMin" value="5" min="0" max="99"> :
+<input type="number" id="tSec" value="0" min="0" max="59">
+<button id="timerStart" style="width:auto;padding:6px 12px;font-size:13px;font-weight:600">Старт</button>
+<button id="timerClose">✕</button>
+</div>
+<div id="zoomControls" class="glass">
+<button id="zoomIn"><i class="fa-solid fa-plus"></i></button>
+<button id="zoomReset"><span id="zoomLevel" style="font-size:12px;font-weight:bold">100%</span></button>
+<button id="zoomOut"><i class="fa-solid fa-minus"></i></button>
+</div>
+<div id="hint" class="glass"><i class="fa-solid fa-computer-mouse"></i> Колесо: зум | <i class="fa-solid fa-hand"></i> ПКМ / Space+ЛКМ: панорама</div>
+
+<div id="viewport"><canvas id="canvas"></canvas><canvas id="laserCanvas"></canvas><div id="objectsLayer"></div></div>
+<div id="emojiPicker"><div class="emoji-grid" id="emojiGrid"></div></div>
+<div id="toasts"></div>
+<input type="file" id="imageInput" accept="image/*" hidden>
+<input type="file" id="projectInput" accept=".json" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+const $=id=>document.getElementById(id),c=$('canvas'),x=c.getContext('2d'),lc=$('laserCanvas'),lx=lc.getContext('2d'),ol=$('objectsLayer'),vp=$('viewport'),socket=io();
+const q=new URLSearchParams(location.search); let room=q.get('room')||Math.random().toString(36).substring(2,8);
+if(!q.get('room')) window.history.replaceState(null,'','?room='+room);
+const emit=(ev,d)=>socket.emit(ev,{...d,room});
+socket.emit('join',{room});
+
+// Надежное копирование ссылки (работает даже без HTTPS)
+$('inviteBtn').onclick=()=>{
+    const u=location.href, t=document.createElement("textarea");
+    t.value=u; document.body.appendChild(t); t.select();
+    try{ document.execCommand('copy'); toast('Ссылка скопирована! Отправь ученикам.','success'); }
+    catch(e){ prompt('Браузер заблокировал копирование. Скопируй вручную:', u); }
+    document.body.removeChild(t);
+};
+
+let tool='pen',shape='rect',drawing=false,panning=false,space=false,offX=0,offY=0,scale=1,lastX=0,lastY=0,startX=0,startY=0,draft=null,lines=[],objs={},undo=[],redo=[],strokeId=null,strokeLines=[],lasers=[],remoteLasers={},selId=null,lineStyle='solid',filled=false,curFont='Segoe UI',curSize=24,snapOn=false;
+const GRID=24,snap=v=>snapOn?Math.round(v/GRID)*GRID:v;
+window.addEventListener('contextmenu',e=>e.preventDefault());
+
+if(localStorage.getItem('yb_theme')==='dark')document.body.classList.add('dark');
+const syncTheme=()=>$('themeBtn').innerHTML=document.body.classList.contains('dark')?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';
+syncTheme();$('themeBtn').onclick=()=>{document.body.classList.toggle('dark');localStorage.setItem('yb_theme',document.body.classList.contains('dark')?'dark':'light');syncTheme();};
+const toast=(m,t='info')=>{const e=document.createElement('div');e.className='toast '+t;e.textContent=m;$('toasts').appendChild(e);setTimeout(()=>e.remove(),3000);};
+
+const bgs=[{t:'none',c:'none'},{t:'dots',c:'radial-gradient(circle,var(--g) 1.5px,transparent 1.5px)',s:24},{t:'grid',c:'linear-gradient(to right,var(--g) 1px,transparent 1px),linear-gradient(to bottom,var(--g) 1px,transparent 1px)',s:24},{t:'lines',c:'repeating-linear-gradient(to bottom,transparent 0px,transparent 29px,var(--g) 29px,var(--g) 30px)',s:30}];
+let bgI=1;
+const updSliders=()=>document.querySelectorAll('input[type="range"]').forEach(el=>{const p=(el.value-el.min)/(el.max-el.min)*100;el.style.background=`linear-gradient(to right,var(--p) ${p}%,var(--b) ${p}%)`;});
+function updateBg(){const b=bgs[bgI];vp.style.backgroundImage=b.t==='none'?'none':b.c;updateCam();}
+$('bgBtn').onclick=()=>{bgI=(bgI+1)%bgs.length;updateBg();toast('Фон: '+bgs[bgI].t);};
+$('snapBtn').onclick=()=>{snapOn=!snapOn;$('snapBtn').classList.toggle('active',snapOn);};
+
+function resize(){c.width=vp.clientWidth;c.height=vp.clientHeight;lc.width=vp.clientWidth;lc.height=vp.clientHeight;redraw();}
+function updateCam(){redraw();ol.style.transform=`translate(${offX}px,${offY}px) scale(${scale})`;const b=bgs[bgI];if(b.t!=='none'){vp.style.backgroundPosition=`${offX}px ${offY}px`;const size=Math.max(b.s*scale,5);vp.style.backgroundSize=b.t==='lines'?`100% ${size}px`:`${size}px ${size}px`;}$('zoomLevel').innerText=Math.round(scale*100)+'%';}
+window.addEventListener('resize',resize);resize();
+const getPos=(cx,cy)=>{const r=c.getBoundingClientRect();return{x:(cx-r.left-offX)/scale,y:(cy-r.top-offY)/scale};};
+
+function applyStyle(ctx,o){ctx.strokeStyle=o.color;ctx.lineWidth=o.size;ctx.globalAlpha=o.opacity??1;ctx.globalCompositeOperation=o.isHighlighter?'multiply':'source-over';if(o.isHighlighter)ctx.globalAlpha*=0.45;ctx.setLineDash(o.lineStyle==='dashed'?[o.size*3,o.size*2]:o.lineStyle==='dotted'?[o.size*.3,o.size*2]:[]);}
+function drawShape(o){x.beginPath();const closed=['rect','circle','triangle','star','diamond','hexagon'].includes(o.type);if(o.type==='rect')x.rect(o.x1,o.y1,o.x2-o.x1,o.y2-o.y1);else if(o.type==='circle')x.arc(o.x1,o.y1,Math.hypot(o.x2-o.x1,o.y2-o.y1),0,2*Math.PI);else if(o.type==='triangle'){x.moveTo((o.x1+o.x2)/2,o.y1);x.lineTo(o.x2,o.y2);x.lineTo(o.x1,o.y2);x.closePath();}else if(o.type==='arrow'){x.moveTo(o.x1,o.y1);x.lineTo(o.x2,o.y2);const a=Math.atan2(o.y2-o.y1,o.x2-o.x1),h=15+o.size*2;x.lineTo(o.x2-h*Math.cos(a-Math.PI/6),o.y2-h*Math.sin(a-Math.PI/6));x.moveTo(o.x2,o.y2);x.lineTo(o.x2-h*Math.cos(a+Math.PI/6),o.y2-h*Math.sin(a+Math.PI/6));}else if(o.type==='star'){const cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2,r=Math.hypot(o.x2-o.x1,o.y2-o.y1)/2,ir=r/2.5;for(let i=0;i<10;i++){const rr=i%2===0?r:ir,a=(Math.PI/5)*i-Math.PI/2;i===0?x.moveTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr):x.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);}x.closePath();}else if(o.type==='diamond'){const cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2;x.moveTo(cx,o.y1);x.lineTo(o.x2,cy);x.lineTo(cx,o.y2);x.lineTo(o.x1,cy);x.closePath();}else if(o.type==='hexagon'){const cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2,r=Math.hypot(o.x2-o.x1,o.y2-o.y1)/2;for(let i=0;i<6;i++){const a=(Math.PI/3)*i-Math.PI/6;i===0?x.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):x.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);}x.closePath();}else{x.moveTo(o.x1,o.y1);x.lineTo(o.x2,o.y2);}if(o.filled&&closed){x.fillStyle=o.color;x.fill();}x.stroke();}
+function redraw(){x.clearRect(0,0,c.width,c.height);x.save();x.translate(offX,offY);x.scale(scale,scale);x.lineCap='round';x.lineJoin='round';const groups={};lines.forEach(o=>{const id=o.id||'s_'+Math.random();if(!groups[id])groups[id]={type:o.type,color:o.color,size:o.size,opacity:o.opacity,lineStyle:o.lineStyle,isHighlighter:o.isHighlighter,filled:o.filled,points:[]};groups[id].points.push(o);});Object.values(groups).forEach(g=>{applyStyle(x,g);if(g.type==='pen'){x.beginPath();g.points.forEach((p,i)=>{if(i===0)x.moveTo(p.x1,p.y1);x.lineTo(p.x2,p.y2);});x.stroke();}else{drawShape(g.points[0]);}});if(draft){x.globalAlpha=.5;applyStyle(x,draft);drawShape(draft);x.globalAlpha=1;}x.restore();}
+
+function animateLaser(){lx.clearRect(0,0,lc.width,lc.height);lasers=lasers.filter(d=>d.life>0);lasers.forEach(d=>{lx.beginPath();lx.arc(d.x,d.y,d.r,0,2*Math.PI);lx.fillStyle=`rgba(239,68,68,${d.life/100})`;lx.fill();d.life-=5;d.r+=.5;});for(let id in remoteLasers){const d=remoteLasers[id];d.life-=5;if(d.life<=0){delete remoteLasers[id];continue;}lx.beginPath();lx.arc(d.sx,d.sy,d.r,0,2*Math.PI);lx.fillStyle=`rgba(239,68,68,${d.life/100})`;lx.fill();d.r+=.5;}requestAnimationFrame(animateLaser);}animateLaser();
+socket.on('laser',d=>{remoteLasers[d.sender]={sx:d.x*scale+offX,sy:d.y*scale+offY,r:6,life:100};});
+
+function setTool(t){
+tool=t;document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));if(t==='shape')$('shapeMenu').classList.add('active');else $(t)?.classList.add('active');
+const m=t==='move';c.style.pointerEvents=m?'none':'auto';document.querySelectorAll('.obj-wrapper').forEach(o=>o.style.pointerEvents=m?'auto':'none');c.style.cursor=m?'grab':(t==='eraser'?'cell':(t==='laser'?'none':'crosshair'));
+$('ctxBar').style.display=(t==='move'||t==='laser')?'none':'flex';
+$('ctxColor').style.display=(t==='eraser')?'none':'flex';
+$('ctxDraw').style.display=(['pen','highlighter','eraser'].includes(t))?'flex':'none';
+$('ctxText').style.display=(['text','sticker'].includes(t))?'flex':'none';
+$('ctxShape').style.display=(t==='shape')?'flex':'none';
+updSliders();
+}
+['move','pen','highlighter','laser','eraser','sticker','text'].forEach(t=>$(t).onclick=()=>setTool(t));$('image').onclick=()=>$('imageInput').click();
+
+window.addEventListener('keydown',e=>{if(e.target.isContentEditable)return;if(e.code==='Space')space=true;if(e.ctrlKey&&e.code==='KeyZ'){e.preventDefault();$('undoBtn').click();}if(e.ctrlKey&&e.code==='KeyY'){e.preventDefault();$('redoBtn').click();}if(e.ctrlKey&&e.code==='KeyD'){e.preventDefault();dupSel();}if(e.code==='KeyV')setTool('move');if(e.code==='KeyP')setTool('pen');if(e.code==='KeyH')setTool('highlighter');if(e.code==='KeyL')setTool('laser');if(e.code==='KeyE')setTool('eraser');if(e.code==='KeyS')setTool('sticker');if(e.code==='KeyT')setTool('text');});
+window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});
+
+$('shapeMenu').onclick=e=>{e.stopPropagation();$('shapeDrop').classList.toggle('show');$('fileMenu').classList.remove('show');};
+document.querySelector('#topBar .dropdown button[title="Файл"]').onclick=e=>{e.stopPropagation();$('fileMenu').classList.toggle('show');$('shapeDrop').classList.remove('show');};
+window.addEventListener('click',e=>{if(!e.target.closest('.dropdown')){$('shapeDrop').classList.remove('show');$('fileMenu').classList.remove('show');}if(!e.target.closest('#emojiPicker')&&!e.target.closest('#emojiBtn'))$('emojiPicker').classList.remove('show');});
+document.querySelectorAll('#shapeDrop button').forEach(b=>{b.onclick=e=>{shape=e.currentTarget.dataset.shape;setTool('shape');};});
+
+document.querySelectorAll('.swatch').forEach(s=>{s.onclick=()=>{document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('selected'));s.classList.add('selected');$('colorPicker').value=s.dataset.color;};});
+$('colorPicker').oninput=()=>document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('selected'));
+document.querySelectorAll('.line-style').forEach(b=>{b.onclick=()=>{lineStyle=b.dataset.style;document.querySelectorAll('.line-style').forEach(x=>x.classList.remove('active'));b.classList.add('active');};});
+$('fillBtn').onclick=()=>{filled=!filled;$('fillBtn').classList.toggle('active',filled);};
+$('brushSize').oninput=updSliders;$('opacity').oninput=updSliders;
+
+$('fontFamily').onchange=e=>{curFont=e.target.value;if(selId&&objs[selId]&&(objs[selId].type==='text'||objs[selId].type==='sticker')){objs[selId].fontFamily=curFont;const el=$(selId);if(el){const cnt=el.querySelector('.content');if(cnt)cnt.style.fontFamily=curFont;}emit('object_update',{id:selId,fontFamily:curFont});}};
+$('fontSize').oninput=e=>{curSize=parseInt(e.target.value)||24;if(selId&&objs[selId]&&(objs[selId].type==='text'||objs[selId].type==='sticker')){objs[selId].fontSize=curSize;const el=$(selId);if(el){const cnt=el.querySelector('.content');if(cnt)cnt.style.fontSize=curSize+'px';}emit('object_update',{id:selId,fontSize:curSize});}};
+
+let tInt=null;
+$('timerBtn').onclick=()=>{$('timerBox').style.display=$('timerBox').style.display==='flex'?'none':'flex';};
+$('timerClose').onclick=()=>{$('timerBox').style.display='none';clearInterval(tInt);tInt=null;$('timerStart').innerText='Старт';};
+$('timerStart').onclick=()=>{
+if(tInt){clearInterval(tInt);tInt=null;$('timerStart').innerText='Старт';}
+else{let m=parseInt($('tMin').value)||0,s=parseInt($('tSec').value)||0,total=m*60+s;if(total<=0)return;$('timerStart').innerText='Пауза';tInt=setInterval(()=>{total--;if(total<0){clearInterval(tInt);tInt=null;$('timerStart').innerText='Готово!';const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();o.connect(a.destination);o.start();o.stop(a.currentTime+.5);return;}$('tMin').value=Math.floor(total/60);$('tSec').value=total%60;},1000);}
+};
+
+c.addEventListener('mousedown',e=>{
+if(space||e.button===1||e.button===2){panning=true;startX=e.clientX-offX;startY=e.clientY-offY;c.style.cursor='grabbing';return;}
+if(e.button!==0||tool==='laser')return;const p=getPos(e.clientX,e.clientY);
+selId=null;
+if(tool==='eraser'){for(let id in objs){const el=$(id);if(el){const r=el.getBoundingClientRect();if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){const d=objs[id];rmObj(id);emit('object_delete',{id});undo.push({type:'del_obj',data:d});redo=[];updUndo();return;}}}for(let i=lines.length-1;i>=0;i--){const l=lines[i],pad=15;if(p.x>=Math.min(l.x1,l.x2)-pad&&p.x<=Math.max(l.x1,l.x2)+pad&&p.y>=Math.min(l.y1,l.y2)-pad&&p.y<=Math.max(l.y1,l.y2)+pad){const del=lines.filter(x=>x.id===l.id);undo.push({type:'del_line',id:l.id,data:del});redo=[];updUndo();lines=lines.filter(x=>x.id!==l.id);redraw();emit('line_delete',{id:l.id});break;}}return;}
+if(tool==='sticker'||tool==='text'){const d={id:'obj_'+Date.now(),type:tool,x:snap(p.x),y:snap(p.y),content:"",fontFamily:curFont,fontSize:curSize};mkObj(d);emit('object_create',d);undo.push({type:'obj',data:d});redo=[];updUndo();}
+else if(tool==='shape'){drawing=true;draft={id:Date.now().toString(),type:shape,x1:snap(p.x),y1:snap(p.y),x2:snap(p.x),y2:snap(p.y),color:$('colorPicker').value,size:parseFloat($('brushSize').value),opacity:parseFloat($('opacity').value)/100,lineStyle,filled};}
+else{drawing=true;lastX=p.x;lastY=p.y;strokeId='stroke_'+Date.now()+Math.random().toString().slice(2,6);strokeLines=[];}
+});
+
+vp.addEventListener('mousedown',e=>{if(e.target.closest('.obj-wrapper')||e.target.closest('.glass'))return;if(space||e.button===1||e.button===2||tool==='move'){panning=true;startX=e.clientX-offX;startY=e.clientY-offY;c.style.cursor='grabbing';}});
+
+window.addEventListener('mousemove',e=>{
+if(tool==='laser'){const p=getPos(e.clientX,e.clientY);lasers.push({x:e.clientX,y:e.clientY,r:6,life:100});emit('laser',{x:p.x,y:p.y});}
+if(panning){offX=e.clientX-startX;offY=e.clientY-startY;updateCam();}
+else if(drawing){const p=getPos(e.clientX,e.clientY);
+if(tool==='pen'||tool==='highlighter'){const baseS=parseFloat($('brushSize').value);const l={id:strokeId,type:'pen',x1:lastX,y1:lastY,x2:p.x,y2:p.y,color:$('colorPicker').value,size:tool==='highlighter'?baseS*3:baseS,opacity:parseFloat($('opacity').value)/100,lineStyle,isHighlighter:tool==='highlighter'};lines.push(l);strokeLines.push(l);redraw();emit('draw',l);lastX=p.x;lastY=p.y;}
+else if(draft){draft.x2=snap(p.x);draft.y2=snap(p.y);redraw();}}
+});
+
+window.addEventListener('mouseup',()=>{
+if(draft){lines.push(draft);emit('draw',draft);undo.push({type:'line',data:draft});redo=[];updUndo();draft=null;redraw();}
+else if(drawing&&strokeLines.length){undo.push({type:'pen',id:strokeId,data:[...strokeLines]});redo=[];updUndo();strokeLines=[];}
+drawing=false;panning=false;c.style.cursor=tool==='move'?'grab':(tool==='eraser'?'cell':(tool==='laser'?'none':'crosshair'));
+});
+
+function updUndo(){if(undo.length>50)undo.shift();$('undoBtn').disabled=!undo.length;$('redoBtn').disabled=!redo.length;}
+function applyAct(a,isU){const{type,data,id}=a;if(type==='line'||type==='pen'){const tid=type==='pen'?id:data.id;if(isU){lines=lines.filter(l=>l.id!==tid);emit('line_delete',{id:tid});}else{(data||[]).forEach(l=>{lines.push(l);emit('draw',l);});}}else if(type==='obj'){if(isU)rmObj(data.id);else{mkObj(data);emit('object_create',data);}}else if(type==='del_obj'){if(isU){mkObj(data);emit('object_create',data);}else{rmObj(data.id);emit('object_delete',{id:data.id});}}else if(type==='del_line'){if(isU)data.forEach(l=>{lines.push(l);emit('draw',l);});else{lines=lines.filter(l=>l.id!==id);emit('line_delete',{id});}}redraw();updUndo();}
+$('undoBtn').onclick=()=>{if(undo.length){const a=undo.pop();redo.push(a);applyAct(a,true);}};
+$('redoBtn').onclick=()=>{if(redo.length){const a=redo.pop();undo.push(a);applyAct(a,false);}};
+
+function addImg(s){const p=getPos(innerWidth/2,innerHeight/2);const d={id:'img_'+Date.now(),type:'image',x:p.x,y:p.y,content:s,width:300,height:200,rotation:0};mkObj(d);emit('object_create',d);undo.push({type:'obj',data:d});redo=[];updUndo();toast('Картинка добавлена','success');}
+$('imageInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>addImg(ev.target.result);r.readAsDataURL(f);e.target.value='';};
+window.addEventListener('paste',e=>{if(document.activeElement?.isContentEditable)return;const items=(e.clipboardData||window.clipboardData).items;for(let it of items){if(it.type.includes('image')){e.preventDefault();const r=new FileReader();r.onload=ev=>addImg(ev.target.result);r.readAsDataURL(it.getAsFile());break;}}});
+
+vp.addEventListener('wheel',e=>{if(e.target.closest('.glass'))return;e.preventDefault();const r=c.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;const ns=e.deltaY<0?scale*1.1:scale/1.1;if(ns<.1||ns>5)return;offX=mx-(mx-offX)*(ns/scale);offY=my-(my-offY)*(ns/scale);scale=ns;updateCam();},{passive:false});
+$('zoomIn').onclick=()=>{scale=Math.min(5,scale*1.2);offX=(innerWidth/2)-((innerWidth/2)-offX)*1.2;offY=(innerHeight/2)-((innerHeight/2)-offY)*1.2;updateCam();};
+$('zoomOut').onclick=()=>{scale=Math.max(.1,scale/1.2);offX=(innerWidth/2)-((innerWidth/2)-offX)/1.2;offY=(innerHeight/2)-((innerHeight/2)-offY)/1.2;updateCam();};
+$('zoomReset').onclick=()=>{scale=1;offX=0;offY=0;updateCam();toast('Масштаб сброшен');};
+
+function mkObj(d){objs[d.id]=d;const el=document.createElement('div');el.id=d.id;el.className=`obj-wrapper obj-${d.type}`;el.style.cssText=`left:${d.x}px;top:${d.y}px;pointer-events:${tool==='move'?'auto':'none'};`;if(d.rotation)el.style.transform=`rotate(${d.rotation}deg)`;let inner=`<div class="drag-handle"><i class="fa-solid fa-up-down-left-right"></i></div><div class="delete-btn"><i class="fa-solid fa-xmark"></i></div>`;if(d.type==='sticker'||d.type==='text'){const fs=d.fontSize||24,ff=d.fontFamily||'Segoe UI';inner+=`<div class="content" contenteditable="true" style="font-family:${ff};font-size:${fs}px;${d.type==='sticker'?'line-height:1.2;':''}">${d.content||(d.type==='text'?'Текст...':'')}</div>`;}else if(d.type==='image'){el.style.width=(d.width||300)+'px';if(d.height)el.style.height=d.height+'px';inner+=`<img src="${d.content}" draggable="false"><div class="resize-handle"></div><div class="rotate-handle"><i class="fa-solid fa-rotate"></i></div>`;}if(d.type==='sticker')inner+=`<div class="rotate-handle"><i class="fa-solid fa-rotate"></i></div>`;el.innerHTML=inner;const cnt=el.querySelector('.content');if(cnt){if((d.type==='text'||d.type==='sticker')&&!d.content&&!d.fontSize){setTimeout(()=>{cnt.focus();if(d.type==='text')document.execCommand('selectAll',false,null);},10);}cnt.addEventListener('input',()=>{d.content=cnt.innerText;emit('object_edit',{id:d.id,content:d.content});});}if(d.type==='image')el.querySelector('img').onload=e=>{if(!d.height||d.height===200){d.height=e.target.naturalHeight*(el.offsetWidth/e.target.naturalWidth);el.style.height=d.height+'px';emit('object_update',{id:d.id,width:el.offsetWidth,height:d.height});}};el.querySelector('.delete-btn').onmousedown=e=>{e.stopPropagation();const o=objs[d.id];rmObj(d.id);emit('object_delete',{id:d.id});undo.push({type:'del_obj',data:o});redo=[];updUndo();};el.addEventListener('mousedown',()=>{selId=d.id;if(d.type==='text'||d.type==='sticker'){$('fontFamily').value=d.fontFamily||'Segoe UI';$('fontSize').value=d.fontSize||24;curFont=$('fontFamily').value;curSize=parseInt($('fontSize').value);}},true);mkDrag(el,d);ol.appendChild(el);}
+function rmObj(id){$(id)?.remove();delete objs[id];if(selId===id)selId=null;}
+
+function mkDrag(el,d){let drag=false,resize=false,sx,sy,ox,oy,sw,sh,ratio,rot=false,cx,cy,sAng;const h=el.querySelector('.resize-handle');if(h)h.onmousedown=e=>{e.stopPropagation();e.preventDefault();resize=true;sx=e.clientX;sw=el.offsetWidth;sh=el.offsetHeight;ratio=sw/sh;const mv=ev=>{if(!resize)return;const nw=Math.max(50,sw+(ev.clientX-sx)/scale);el.style.width=nw+'px';el.style.height=(nw/ratio)+'px';};const up=()=>{if(resize){resize=false;d.width=el.offsetWidth;d.height=el.offsetHeight;emit('object_update',{id:d.id,width:d.width,height:d.height});}window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);};const r=el.querySelector('.rotate-handle');if(r)r.onmousedown=e=>{e.stopPropagation();e.preventDefault();rot=true;const b=el.getBoundingClientRect();cx=b.left+b.width/2;cy=b.top+b.height/2;sAng=Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI-(d.rotation||0);const mv=ev=>{if(!rot)return;const a=Math.atan2(ev.clientY-cy,ev.clientX-cx)*180/Math.PI;d.rotation=Math.round((a-sAng)/15)*15;el.style.transform=`rotate(${d.rotation}deg)`;};const up=()=>{if(rot){rot=false;emit('object_update',{id:d.id,rotation:d.rotation});}window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);};el.onmousedown=e=>{if(e.target.closest('.delete-btn')||e.target.closest('.resize-handle')||e.target.closest('.rotate-handle'))return;if((d.type==='text'||d.type==='sticker')&&!e.target.closest('.drag-handle'))return;drag=true;sx=e.clientX;sy=e.clientY;ox=d.x;oy=d.y;e.stopPropagation();};window.addEventListener('mousemove',e=>{if(!drag)return;d.x=snap(ox+(e.clientX-sx)/scale);d.y=snap(oy+(e.clientY-sy)/scale);el.style.left=d.x+'px';el.style.top=d.y+'px';});window.addEventListener('mouseup',()=>{if(drag){drag=false;emit('object_update',{id:d.id,x:d.x,y:d.y});}});}
+
+function dupSel(){if(!selId||!objs[selId]){toast('Выбери объект','error');return;}const o=objs[selId],d=JSON.parse(JSON.stringify(o));d.id='obj_'+Date.now()+Math.random().toString().slice(2,6);d.x+=30;d.y+=30;mkObj(d);emit('object_create',d);toast('Дублировано','success');}
+
+const EMO=['😀','😂','😍','🤔','😎','🥳','😴','😱','🤩','👍','👎','👏','🙏','💪','🤝','❤️','🔥','⭐','🎉','💯','✅','❌','⚡','🌈','☀️','🌙','🎈','🎁','🚀','💡','🎨','🎯','🏆','💎','🍕','☕','🎵','📌','📎','🔔'];const eg=$('emojiGrid');EMO.forEach(em=>{const b=document.createElement('button');b.className='emoji-btn';b.textContent=em;b.onclick=()=>addEm(em);eg.appendChild(b);});
+$('emojiBtn').onclick=e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect(),p=$('emojiPicker');p.style.top=(r.bottom+8)+'px';p.style.left=Math.max(10,r.left-100)+'px';p.classList.toggle('show');};
+function addEm(em){const cx=(innerWidth/2-offX)/scale,cy=(innerHeight/2-offY)/scale;const d={id:'obj_'+Date.now(),type:'text',x:cx,y:cy,content:em,fontSize:48};mkObj(d);emit('object_create',d);undo.push({type:'obj',data:d});redo=[];updUndo();toast('Эмодзи добавлен');$('emojiPicker').classList.remove('show');}
+
+socket.on('load_state',s=>{lines=s.lines||[];objs={};ol.innerHTML='';Object.values(s.objects||{}).forEach(mkObj);redraw();});
+socket.on('draw',d=>{lines.push(d);redraw();});
+socket.on('line_delete',id=>{lines=lines.filter(l=>l.id!==id);redraw();});
+socket.on('object_create',d=>{if(!objs[d.id])mkObj(d);});
+socket.on('object_update',d=>{if(objs[d.id]){Object.assign(objs[d.id],d);const el=$(d.id);if(el){if(d.x!==undefined)el.style.left=d.x+'px';if(d.y!==undefined)el.style.top=d.y+'px';if(d.width)el.style.width=d.width+'px';if(d.height)el.style.height=d.height+'px';if(d.rotation!==undefined)el.style.transform=`rotate(${d.rotation}deg)`;const cnt=el.querySelector('.content');if(cnt){if(d.fontFamily)cnt.style.fontFamily=d.fontFamily;if(d.fontSize)cnt.style.fontSize=d.fontSize+'px';}}}});
+socket.on('object_edit',d=>{if(objs[d.id]){objs[d.id].content=d.content;const cnt=$(d.id)?.querySelector('.content');if(cnt&&cnt.innerText!==d.content)cnt.innerText=d.content;}});
+socket.on('object_delete',id=>rmObj(id));
+socket.on('clear_all',()=>{lines=[];objs={};ol.innerHTML='';redraw();});
+
+$('clearBtn').onclick=()=>{if(confirm('Очистить?')){lines=[];objs={};undo=[];redo=[];updUndo();ol.innerHTML='';redraw();emit('clear_all',{});toast('Очищено');}};
+$('saveBtn').onclick=()=>{$('topBar').style.display='none';$('zoomControls').style.display='none';$('hint').style.display='none';$('ctxBar').style.display='none';html2canvas(vp,{backgroundColor:null,scale:2,useCORS:true}).then(cv=>{const a=document.createElement('a');a.href=cv.toDataURL('image/png');a.download='YUNGBOARD.png';a.click();setTool(tool);$('topBar').style.display='flex';$('zoomControls').style.display='flex';$('hint').style.display='block';toast('PNG сохранён','success');}).catch(()=>{setTool(tool);$('topBar').style.display='flex';$('zoomControls').style.display='flex';$('hint').style.display='block';toast('Ошибка','error');});};
+$('exportBtn').onclick=()=>{const d={lines,objects:Object.values(objs)};const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='yungboard.json';a.click();URL.revokeObjectURL(a.href);toast('JSON сохранён','success');$('fileMenu').classList.remove('show');};
+$('importBtn').onclick=()=>{$('projectInput').click();$('fileMenu').classList.remove('show');};
+$('projectInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!Array.isArray(d.lines)||!Array.isArray(d.objects))throw 0;emit('load_project',d);toast('Загружено','success');}catch(_){toast('Неверный JSON','error');}e.target.value='';};r.readAsText(f);};
+setTool('pen');updateBg();
+</script>
+</body>
+</html>
