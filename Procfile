@@ -1,1 +1,1 @@
-web: gunicorn --worker-class eventlet -w 1 app:app
+gunicorn -w 1 --threads 100 app:app
