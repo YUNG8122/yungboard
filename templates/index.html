@@ -31,6 +31,9 @@ button:disabled{opacity:.3;cursor:not-allowed;background:0 0!important;box-shado
 #canvas{display:block;background:0 0;touch-action:none;position:absolute;top:0;left:0;z-index:2}
 #laserCanvas{display:block;background:0 0;touch-action:none;position:absolute;top:0;left:0;z-index:3;pointer-events:none}
 #objectsLayer{position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;pointer-events:none;z-index:1}
+#cursorsLayer{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.remote-cursor{position:absolute;transform:translate(-2px,-2px);transition:left .1s linear,top .1s linear;will-change:left,top}
+.cursor-label{position:absolute;top:22px;left:10px;padding:2px 8px;border-radius:10px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.2)}
 .swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s}
 .swatch:hover{transform:scale(1.15)}
 .swatch.selected{border-color:var(--p);transform:scale(1.15);box-shadow:0 0 0 2px var(--ps)}
@@ -176,7 +179,7 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 </div>
 <div id="hint" class="glass"><i class="fa-solid fa-computer-mouse"></i> Колесо: зум | <i class="fa-solid fa-hand"></i> ПКМ / Space+ЛКМ: панорама</div>
 
-<div id="viewport"><canvas id="canvas"></canvas><canvas id="laserCanvas"></canvas><div id="objectsLayer"></div></div>
+<div id="viewport"><canvas id="canvas"></canvas><canvas id="laserCanvas"></canvas><div id="objectsLayer"></div><div id="cursorsLayer"></div></div>
 <div id="emojiPicker"><div class="emoji-grid" id="emojiGrid"></div></div>
 <div id="toasts"></div>
 <input type="file" id="imageInput" accept="image/*" hidden>
@@ -190,18 +193,50 @@ if(!q.get('room')) window.history.replaceState(null,'','?room='+room);
 const emit=(ev,d)=>socket.emit(ev,{...d,room});
 socket.emit('join',{room});
 
-// Надежное копирование ссылки (работает даже без HTTPS)
 $('inviteBtn').onclick=()=>{
     const u=location.href, t=document.createElement("textarea");
     t.value=u; document.body.appendChild(t); t.select();
     try{ document.execCommand('copy'); toast('Ссылка скопирована! Отправь ученикам.','success'); }
-    catch(e){ prompt('Браузер заблокировал копирование. Скопируй вручную:', u); }
+    catch(e){ prompt('Скопируй вручную:', u); }
     document.body.removeChild(t);
 };
 
 let tool='pen',shape='rect',drawing=false,panning=false,space=false,offX=0,offY=0,scale=1,lastX=0,lastY=0,startX=0,startY=0,draft=null,lines=[],objs={},undo=[],redo=[],strokeId=null,strokeLines=[],lasers=[],remoteLasers={},selId=null,lineStyle='solid',filled=false,curFont='Segoe UI',curSize=24,snapOn=false;
 const GRID=24,snap=v=>snapOn?Math.round(v/GRID)*GRID:v;
 window.addEventListener('contextmenu',e=>e.preventDefault());
+
+// КУРСОРЫ
+const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
+const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+let lastCursor=0;
+window.addEventListener('mousemove',e=>{
+    const now=Date.now();
+    if(now-lastCursor>50){
+        lastCursor=now;
+        const p=getPos(e.clientX,e.clientY);
+        emit('cursor_move',{x:p.x,y:p.y,color:myColor});
+    }
+});
+socket.on('cursor_move',d=>{
+    remotePos[d.sender]={x:d.x,y:d.y};
+    if(!remoteCursors[d.sender]){
+        const el=document.createElement('div');
+        el.className='remote-cursor';
+        el.innerHTML=`<svg width="24" height="24" viewBox="0 0 24 24" fill="${d.color}" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg><div class="cursor-label" style="background:${d.color}">Гость</div>`;
+        cursorsLayer.appendChild(el);
+        remoteCursors[d.sender]=el;
+    }
+    updCursor(d.sender);
+});
+socket.on('user_left',sid=>{
+    if(remoteCursors[sid]){ remoteCursors[sid].remove(); delete remoteCursors[sid]; delete remotePos[sid]; }
+});
+function updCursor(sid){
+    if(!remotePos[sid]||!remoteCursors[sid]) return;
+    const el=remoteCursors[sid];
+    el.style.left=(remotePos[sid].x*scale+offX)+'px';
+    el.style.top=(remotePos[sid].y*scale+offY)+'px';
+}
 
 if(localStorage.getItem('yb_theme')==='dark')document.body.classList.add('dark');
 const syncTheme=()=>$('themeBtn').innerHTML=document.body.classList.contains('dark')?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';
@@ -216,7 +251,7 @@ $('bgBtn').onclick=()=>{bgI=(bgI+1)%bgs.length;updateBg();toast('Фон: '+bgs[b
 $('snapBtn').onclick=()=>{snapOn=!snapOn;$('snapBtn').classList.toggle('active',snapOn);};
 
 function resize(){c.width=vp.clientWidth;c.height=vp.clientHeight;lc.width=vp.clientWidth;lc.height=vp.clientHeight;redraw();}
-function updateCam(){redraw();ol.style.transform=`translate(${offX}px,${offY}px) scale(${scale})`;const b=bgs[bgI];if(b.t!=='none'){vp.style.backgroundPosition=`${offX}px ${offY}px`;const size=Math.max(b.s*scale,5);vp.style.backgroundSize=b.t==='lines'?`100% ${size}px`:`${size}px ${size}px`;}$('zoomLevel').innerText=Math.round(scale*100)+'%';}
+function updateCam(){redraw();ol.style.transform=`translate(${offX}px,${offY}px) scale(${scale})`;const b=bgs[bgI];if(b.t!=='none'){vp.style.backgroundPosition=`${offX}px ${offY}px`;const size=Math.max(b.s*scale,5);vp.style.backgroundSize=b.t==='lines'?`100% ${size}px`:`${size}px ${size}px`;}$('zoomLevel').innerText=Math.round(scale*100)+'%';Object.keys(remoteCursors).forEach(updCursor);}
 window.addEventListener('resize',resize);resize();
 const getPos=(cx,cy)=>{const r=c.getBoundingClientRect();return{x:(cx-r.left-offX)/scale,y:(cy-r.top-offY)/scale};};
 
