@@ -1,16 +1,13 @@
-from gevent import monkey
-monkey.patch_all()  # Обязательно в самом начале для асинхронности
-
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
-# Используем gevent для максимальной скорости
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+# Убираем async_mode='gevent', используем стандартный threading
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-ROOMS = {} # {room: {'lines':[], 'objects':{}, 'camera':{}, 'users': {sid: name}}}
+ROOMS = {}
 
 @app.route('/')
 def index(): 
@@ -39,7 +36,6 @@ def on_join(data):
     
     ROOMS[room]['users'][request.sid] = name
     
-    # Отправляем новому участнику текущее состояние доски
     emit('load_state', {
         'lines': ROOMS[room]['lines'],
         'objects': ROOMS[room]['objects'],
@@ -47,7 +43,6 @@ def on_join(data):
         'users': ROOMS[room]['users']
     }, to=request.sid)
     
-    # Обновляем список участников у всех
     emit('users_update', ROOMS[room]['users'], to=room)
 
 @socketio.on('camera_move')
