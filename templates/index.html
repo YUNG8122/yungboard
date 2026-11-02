@@ -34,10 +34,10 @@ button:disabled{opacity:.3;cursor:not-allowed;background:0 0!important;box-shado
 #cursorsLayer{position:absolute;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
 .remote-cursor{position:absolute;transform:translate(-2px,-2px);transition:left .1s linear,top .1s linear;will-change:left,top;z-index:9999;pointer-events:none}
 .cursor-label{position:absolute;top:22px;left:10px;padding:2px 8px;border-radius:10px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.2)}
-/* Список пользователей */
+/* Аватарки для телепорта */
 #onlineUsers { display:flex; gap:4px; margin-left:10px; align-items:center; }
-.user-avatar { width:28px; height:28px; border-radius:50%; background:var(--p); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; border:2px solid var(--ps); box-shadow:0 2px 5px rgba(0,0,0,.2); transition: transform 0.2s; }
-.user-avatar:hover { transform: scale(1.1); z-index:10; }
+.user-avatar { width:32px; height:32px; border-radius:50%; background:var(--p); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold; border:2px solid var(--ps); box-shadow:0 2px 5px rgba(0,0,0,.2); transition: all 0.2s; cursor:pointer; }
+.user-avatar:hover { transform: scale(1.15); z-index:10; box-shadow:0 4px 10px rgba(79,70,229,.5); }
 .swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s}
 .swatch:hover{transform:scale(1.15)}
 .swatch.selected{border-color:var(--p);transform:scale(1.15);box-shadow:0 0 0 2px var(--ps)}
@@ -87,9 +87,19 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 .modal-content input:focus{border-color:var(--p);background:var(--ps);box-shadow:0 0 0 4px var(--pl)}
 .modal-content button{background:var(--p);color:#fff;padding:16px;border-radius:12px;font-size:16px;font-weight:600;width:100%;cursor:pointer;transition:all .2s;border:none}
 .modal-content button:hover{background:#4338ca;transform:translateY(-2px);box-shadow:0 10px 20px -10px var(--p)}
+/* Экран загрузки */
+#loadingScreen { position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s; }
+.spinner { width:50px; height:50px; border:4px solid var(--b); border-top:4px solid var(--p); border-radius:50%; animation:spin 1s linear infinite; margin-bottom:20px; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<div id="loadingScreen">
+    <div class="spinner"></div>
+    <h2 style="color:var(--t); margin:0 0 10px;">Подключение к серверу...</h2>
+    <p style="color:var(--tm); margin:0;">Если сервер спал, это займет до 40 секунд.</p>
+</div>
 
 <div id="nameModal" class="modal-overlay">
     <div class="modal-content">
@@ -149,7 +159,7 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 <button id="timerBtn" title="Таймер"><i class="fa-regular fa-clock"></i></button>
 <button id="themeBtn" title="Тема"><i class="fa-solid fa-moon"></i></button>
 <button id="clearBtn" class="danger" title="Очистить"><i class="fa-solid fa-trash"></i></button>
-<!-- СПИСОК ОНЛАЙН ПОЛЬЗОВАТЕЛЕЙ -->
+<!-- СПИСОК ОНЛАЙН ПОЛЬЗОВАТЕЛЕЙ (Телепорт) -->
 <div id="onlineUsers"></div>
 </div>
 </div>
@@ -219,6 +229,12 @@ const emit=(ev,d)=>socket.emit(ev,{...d,room});
 const safeSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const safeGet=(k)=>{try{return localStorage.getItem(k)}catch(e){return null}};
 
+// Скрываем экран загрузки после подключения
+socket.on('connect', () => {
+    $('loadingScreen').style.opacity = '0';
+    setTimeout(() => $('loadingScreen').style.display = 'none', 500);
+});
+
 $('inviteBtn').onclick=()=>{
     const url = new URL(window.location.origin + window.location.pathname);
     url.searchParams.set('room', room);
@@ -257,14 +273,30 @@ if(myName) socket.emit('join',{room, name: myName}); else showNameModal();
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
 
+// Поддержание связи (авто-пинг)
+setInterval(() => { socket.emit('ping_back'); }, 120000);
+
 socket.on('users_update', users => {
     const container = $('onlineUsers');
     container.innerHTML = '';
-    Object.values(users).forEach(name => {
+    Object.keys(users).forEach(sid => {
+        const name = users[sid];
         const el = document.createElement('div');
         el.className = 'user-avatar';
         el.textContent = name.charAt(0).toUpperCase();
-        el.title = name;
+        el.title = `Телепорт к: ${name}`;
+        // ТЕЛЕПОРТ ПРИ КЛИКЕ
+        el.onclick = () => {
+            const pos = remotePos[sid];
+            if(pos) {
+                offX = innerWidth/2 - pos.x * scale;
+                offY = innerHeight/2 - pos.y * scale;
+                updateCam(true);
+                toast(`Телепорт к ${name}`, 'success');
+            } else {
+                toast(`Курсор ${name} не найден`, 'error');
+            }
+        };
         container.appendChild(el);
     });
 });
@@ -465,7 +497,29 @@ socket.on('load_state',s=>{
         isCameraSynced = true;
         updateCam(false);
     }
-    if (s.users) socket.emit('users_update', s.users); // Обновляем список при входе
+    if (s.users) {
+        const container = $('onlineUsers');
+        container.innerHTML = '';
+        Object.keys(s.users).forEach(sid => {
+            const name = s.users[sid];
+            const el = document.createElement('div');
+            el.className = 'user-avatar';
+            el.textContent = name.charAt(0).toUpperCase();
+            el.title = `Телепорт к: ${name}`;
+            el.onclick = () => {
+                const pos = remotePos[sid];
+                if(pos) {
+                    offX = innerWidth/2 - pos.x * scale;
+                    offY = innerHeight/2 - pos.y * scale;
+                    updateCam(true);
+                    toast(`Телепорт к ${name}`, 'success');
+                } else {
+                    toast(`Курсор ${name} не найден`, 'error');
+                }
+            };
+            container.appendChild(el);
+        });
+    }
 });
 socket.on('draw',d=>{lines.push(d);redraw();});
 socket.on('line_delete',id=>{lines=lines.filter(l=>l.id!==id);redraw();});
