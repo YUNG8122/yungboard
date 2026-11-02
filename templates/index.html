@@ -220,19 +220,17 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
 const $=id=>document.getElementById(id),c=$('canvas'),x=c.getContext('2d'),lc=$('laserCanvas'),lx=lc.getContext('2d'),ol=$('objectsLayer'),vp=$('viewport');
-// Принудительно используем WebSocket, если возможно, иначе Polling
 const socket = io({ transports: ['websocket', 'polling'] });
 
-const q=new URLSearchParams(location.search); let room=q.get('room')||Math.random().toString(36).substring(2,8);
+const q=new URLSearchParams(location.search); 
+let room = q.get('room') || Math.random().toString(36).substring(2,8);
 if(!q.get('room')) window.history.replaceState(null,'','?room='+room);
 const emit=(ev,d)=>socket.emit(ev,{...d,room});
-const safeSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-const safeGet=(k)=>{try{return localStorage.getItem(k)}catch(e){return null}};
 
-let myName = safeGet('yb_name') || '';
+let myName = ''; // Имя всегда пустое при загрузке
 let joined = false; 
 
-// Аварийное скрытие экрана загрузки через 5 секунд (если что-то пошло не так)
+// Аварийное скрытие экрана загрузки
 setTimeout(() => {
     if($('loadingScreen').style.display !== 'none'){
         $('loadingScreen').style.opacity = '0';
@@ -243,27 +241,26 @@ setTimeout(() => {
 socket.on('connect', () => {
     $('loadingScreen').style.opacity = '0';
     setTimeout(() => $('loadingScreen').style.display = 'none', 500);
-    if(myName && !joined) {
-        joined = true;
-        socket.emit('join',{room, name: myName});
-    } else if(!myName) {
-        showNameModal();
-    }
+    // Всегда показываем окно ввода имени
+    showNameModal(); 
 });
 
 socket.on('connect_error', () => {
-    // Если ошибка подключения, показываем экран входа, чтобы не висел "вечный спиннер"
     $('loadingScreen').style.display = 'none';
     showNameModal();
 });
 
+// Генерация идеальной ссылки для приглашения
 $('inviteBtn').onclick=()=>{
     const url = new URL(window.location.origin + window.location.pathname);
     url.searchParams.set('room', room);
     const u = url.toString();
     const t=document.createElement("textarea");
     t.value=u; document.body.appendChild(t); t.select();
-    try{ document.execCommand('copy'); toast('Ссылка скопирована!','success'); }
+    try{ 
+        document.execCommand('copy'); 
+        toast('Ссылка скопирована! Отправь ученикам.','success'); 
+    }
     catch(e){ prompt('Скопируй вручную:', u); }
     document.body.removeChild(t);
 };
@@ -287,7 +284,7 @@ function showNameModal() { $('nameModal').style.display = 'flex'; setTimeout(() 
 function saveName() {
     if(joined) return; 
     const val = $('nameInput').value.trim();
-    myName = val || 'Гость'; safeSet('yb_name', myName);
+    myName = val || 'Гость';
     $('nameModal').style.display = 'none';
     joined = true;
     socket.emit('join',{room, name: myName});
@@ -356,9 +353,9 @@ function updCursor(sid){
     el.style.top=(remotePos[sid].y*scale+offY)+'px';
 }
 
-if(safeGet('yb_theme')==='dark') document.body.classList.add('dark');
+if(localStorage.getItem('yb_theme')==='dark') document.body.classList.add('dark');
 const syncTheme=()=>$('themeBtn').innerHTML=document.body.classList.contains('dark')?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';
-syncTheme();$('themeBtn').onclick=()=>{document.body.classList.toggle('dark');safeSet('yb_theme',document.body.classList.contains('dark')?'dark':'light');syncTheme();};
+syncTheme();$('themeBtn').onclick=()=>{document.body.classList.toggle('dark');try{localStorage.setItem('yb_theme',document.body.classList.contains('dark')?'dark':'light')}catch(e){};syncTheme();};
 const toast=(m,t='info')=>{const e=document.createElement('div');e.className='toast '+t;e.textContent=m;$('toasts').appendChild(e);setTimeout(()=>e.remove(),3000);};
 
 const bgs=[{t:'none',c:'none'},{t:'dots',c:'radial-gradient(circle,var(--g) 1.5px,transparent 1.5px)',s:24},{t:'grid',c:'linear-gradient(to right,var(--g) 1px,transparent 1px),linear-gradient(to bottom,var(--g) 1px,transparent 1px)',s:24},{t:'lines',c:'repeating-linear-gradient(to bottom,transparent 0px,transparent 29px,var(--g) 29px,var(--g) 30px)',s:30}];
