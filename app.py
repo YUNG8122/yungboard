@@ -1,13 +1,11 @@
-import eventlet
-eventlet.monkey_patch()
-
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# Используем стандартный threading, который отлично работает с simple-websocket
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 ROOMS = {} 
 
@@ -51,8 +49,7 @@ def on_disconnect():
 @socketio.on('camera_move')
 def on_camera_move(data):
     room = data.get('room')
-    if room in ROOMS: 
-        ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
+    if room in ROOMS: ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
     emit('camera_move', data, to=room, include_self=False)
 
 @socketio.on('cursor_move')
@@ -67,8 +64,7 @@ def on_laser(data):
 
 @socketio.on('draw')
 def on_draw(data):
-    if data['room'] in ROOMS: 
-        ROOMS[data['room']]['lines'].append(data)
+    if data['room'] in ROOMS: ROOMS[data['room']]['lines'].append(data)
     emit('draw', data, to=data['room'], include_self=False)
 
 @socketio.on('line_delete')
@@ -79,8 +75,7 @@ def on_line_delete(data):
 
 @socketio.on('object_create')
 def on_obj_create(data):
-    if data['room'] in ROOMS: 
-        ROOMS[data['room']]['objects'][data['id']] = data
+    if data['room'] in ROOMS: ROOMS[data['room']]['objects'][data['id']] = data
     emit('object_create', data, to=data['room'], include_self=False)
 
 @socketio.on('object_update')
