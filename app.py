@@ -6,7 +6,8 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=10e6)
 
-ROOMS = {}
+ROOMS = {} 
+# room: {'lines':[], 'objects':{}, 'camera':{}, 'users': {sid: name}}
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -14,18 +15,22 @@ def index(): return render_template('index.html')
 @socketio.on('join')
 def on_join(data):
     room = data.get('room', 'main')
+    name = data.get('name', 'Гость')
     join_room(room)
+    
     if room not in ROOMS:
-        ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}}
+        ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}, 'users': {}}
+    
+    ROOMS[room]['users'][request.sid] = name
     
     emit('load_state', {
         'lines': ROOMS[room]['lines'],
         'objects': ROOMS[room]['objects'],
-        'camera': ROOMS[room]['camera']
+        'camera': ROOMS[room]['camera'],
+        'users': ROOMS[room]['users']
     }, to=request.sid)
     
-    if data.get('name'):
-        emit('user_joined', data.get('name'), to=room, include_self=False)
+    emit('users_update', ROOMS[room]['users'], to=room)
 
 @socketio.on('camera_move')
 def on_camera_move(data):
@@ -80,18 +85,19 @@ def on_obj_delete(data):
 
 @socketio.on('clear_all')
 def on_clear_all(data):
-    if data['room'] in ROOMS: ROOMS[data['room']] = {'lines': [], 'objects': {}, 'camera': ROOMS[data['room']]['camera']}
+    if data['room'] in ROOMS: 
+        ROOMS[data['room']]['lines'] = []
+        ROOMS[data['room']]['objects'] = {}
     emit('clear_all', {}, to=data['room'], include_self=False)
 
-@socketio.on('load_project')
-def on_load_project(data):
-    if data['room'] in ROOMS:
-        ROOMS[data['room']]['lines'] = data.get('lines', [])
-        ROOMS[data['room']]['objects'] = {o['id']: o for o in data.get('objects', [])}
-        emit('load_state', {'lines': ROOMS[data['room']]['lines'], 'objects': ROOMS[data['room']]['objects'], 'camera': ROOMS[data['room']]['camera']}, to=data['room'])
-
 @socketio.on('disconnect')
-def on_disconnect(): emit('user_left', request.sid, broadcast=True)
+def on_disconnect():
+    for room, data in ROOMS.items():
+        if request.sid in data['users']:
+            del data['users'][request.sid]
+            emit('users_update', data['users'], to=room)
+            break
+    emit('user_left', request.sid, broadcast=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
