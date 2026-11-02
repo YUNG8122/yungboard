@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
-# Используем стандартный threading, который отлично работает с simple-websocket
+# Используем стандартный threading, он не падает на Python 3.14
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 ROOMS = {} 
@@ -13,6 +13,7 @@ ROOMS = {}
 def index(): 
     return render_template('index.html')
 
+# Не дает серверу уснуть и разрывать WebSocket
 def keep_alive():
     while True:
         socketio.sleep(25)
@@ -24,6 +25,7 @@ def on_join(data):
     room = data.get('room', 'main')
     name = data.get('name', 'Гость')
     join_room(room)
+    
     if room not in ROOMS:
         ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}, 'users': {}}
     
@@ -35,10 +37,12 @@ def on_join(data):
         'camera': ROOMS[room]['camera'],
         'users': ROOMS[room]['users']
     }, to=request.sid)
+    
     emit('users_update', ROOMS[room]['users'], to=room)
 
 @socketio.on('disconnect')
 def on_disconnect():
+    # Полностью удаляем пользователя, чтобы не было фантомов
     for room in list(ROOMS.keys()):
         if request.sid in ROOMS[room]['users']:
             del ROOMS[room]['users'][request.sid]
@@ -49,7 +53,8 @@ def on_disconnect():
 @socketio.on('camera_move')
 def on_camera_move(data):
     room = data.get('room')
-    if room in ROOMS: ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
+    if room in ROOMS: 
+        ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
     emit('camera_move', data, to=room, include_self=False)
 
 @socketio.on('cursor_move')
@@ -57,14 +62,27 @@ def on_cursor_move(data):
     data['sender'] = request.sid
     emit('cursor_move', data, to=data['room'], include_self=False)
 
+@socketio.on('laser')
+def on_laser(data):
+    data['sender'] = request.sid
+    emit('laser', data, to=data['room'], include_self=False)
+
 @socketio.on('draw')
 def on_draw(data):
-    if data['room'] in ROOMS: ROOMS[data['room']]['lines'].append(data)
+    if data['room'] in ROOMS: 
+        ROOMS[data['room']]['lines'].append(data)
     emit('draw', data, to=data['room'], include_self=False)
+
+@socketio.on('line_delete')
+def on_line_delete(data):
+    if data['room'] in ROOMS: 
+        ROOMS[data['room']]['lines'] = [l for l in ROOMS[data['room']]['lines'] if l.get('id') != data['id']]
+    emit('line_delete', data['id'], to=data['room'], include_self=False)
 
 @socketio.on('object_create')
 def on_obj_create(data):
-    if data['room'] in ROOMS: ROOMS[data['room']]['objects'][data['id']] = data
+    if data['room'] in ROOMS: 
+        ROOMS[data['room']]['objects'][data['id']] = data
     emit('object_create', data, to=data['room'], include_self=False)
 
 @socketio.on('object_update')
