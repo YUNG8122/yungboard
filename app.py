@@ -1,5 +1,5 @@
 import eventlet
-eventlet.monkey_patch()  # Критически важно для скорости
+eventlet.monkey_patch()
 
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-ROOMS = {} # {room: {'lines':[], 'objects':{}, 'camera':{}, 'users': {sid: name}}}
+ROOMS = {}
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -87,4 +87,4 @@ def on_disconnect():
 if __name__ == '__main__':
     socketio.start_background_task(keep_alive)
     port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    socketio.run(app, host='0.0.0.0', port=port)
