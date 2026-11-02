@@ -55,7 +55,6 @@ let tool = 'pen';
 let drawData = [];
 let remoteCursors = {};
 
-// Canvas optimization
 const c = $('canvas'), ctx = c.getContext('2d', { alpha: false, desynchronized: true });
 const offCanvas = document.createElement('canvas');
 const offCtx = offCanvas.getContext('2d');
@@ -79,7 +78,6 @@ function getPos(e){
     return { x: (e.clientX - r.left - offX) / scale, y: (e.clientY - r.top - offY) / scale };
 }
 
-// --- Отрисовка через requestAnimationFrame (плавно) ---
 function render(){
     requestAnimationFrame(() => {
         offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
@@ -87,7 +85,6 @@ function render(){
         offCtx.translate(offX, offY);
         offCtx.scale(scale, scale);
         offCtx.lineCap = 'round'; offCtx.lineJoin = 'round';
-        
         drawData.forEach(line => {
             offCtx.beginPath();
             offCtx.strokeStyle = line.color;
@@ -96,14 +93,11 @@ function render(){
             offCtx.lineTo(line.x2, line.y2);
             offCtx.stroke();
         });
-
-        // Переносим на главный экран (быстро)
         ctx.drawImage(offCanvas, 0, 0);
         offCtx.restore();
     });
 }
 
-// --- Инструменты ---
 $('pen').onclick = () => { tool = 'pen'; $('pen').classList.add('active'); $('eraser').classList.remove('active'); };
 $('eraser').onclick = () => { tool = 'eraser'; $('eraser').classList.add('active'); $('pen').classList.remove('active'); };
 
@@ -116,7 +110,6 @@ $('inviteBtn').onclick = () => {
     alert('Ссылка скопирована!');
 };
 
-// --- Рисование (Отправка с троттлингом) ---
 c.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
     isDrawing = true;
@@ -136,14 +129,11 @@ c.addEventListener('mousemove', e => {
     };
     drawData.push(line);
     strokeLines.push(line);
-    
-    // Троттлинг: отправляем на сервер не чаще 30 раз в секунду
     const now = Date.now();
     if(now - lastSend > 33){
         lastSend = now;
         socket.emit('draw', { ...line, room });
     }
-    
     lastX = p.x; lastY = p.y;
     render();
 });
@@ -151,11 +141,9 @@ c.addEventListener('mousemove', e => {
 window.addEventListener('mouseup', () => {
     if(!isDrawing) return;
     isDrawing = false;
-    // Отправляем последний кусочек, если не успел уйти
     if(strokeLines.length > 0) socket.emit('draw', { ...strokeLines[strokeLines.length-1], room });
 });
 
-// --- Socket.IO События ---
 socket.on('connect', () => {
     $('loadingScreen').style.display = 'none';
     socket.emit('join', { room, name: myName });
@@ -192,14 +180,12 @@ socket.on('users_update', users => {
         el.className = 'user-avatar'; el.textContent = name[0];
         el.title = name;
         el.onclick = () => {
-            // Телепорт (если есть данные курсора)
-            // (Упрощено для краткости, можно добавить проверку remoteCursors[sid])
+            // Телепорт
         };
         box.appendChild(el);
     });
 });
 
-// Отправка курсора (не чаще 25 раз/сек)
 let lastCursorSend = 0;
 window.addEventListener('mousemove', e => {
     const now = Date.now();
@@ -210,7 +196,6 @@ window.addEventListener('mousemove', e => {
     }
 });
 
-// --- Авторизация ---
 $('nameSubmit').onclick = () => {
     myName = $('nameInput').value.trim() || 'Гость';
     $('nameModal').style.display = 'none';
