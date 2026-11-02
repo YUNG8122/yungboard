@@ -219,7 +219,10 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-const $=id=>document.getElementById(id),c=$('canvas'),x=c.getContext('2d'),lc=$('laserCanvas'),lx=lc.getContext('2d'),ol=$('objectsLayer'),vp=$('viewport'),socket=io();
+const $=id=>document.getElementById(id),c=$('canvas'),x=c.getContext('2d'),lc=$('laserCanvas'),lx=lc.getContext('2d'),ol=$('objectsLayer'),vp=$('viewport');
+// Принудительно используем WebSocket, если возможно, иначе Polling
+const socket = io({ transports: ['websocket', 'polling'] });
+
 const q=new URLSearchParams(location.search); let room=q.get('room')||Math.random().toString(36).substring(2,8);
 if(!q.get('room')) window.history.replaceState(null,'','?room='+room);
 const emit=(ev,d)=>socket.emit(ev,{...d,room});
@@ -227,7 +230,15 @@ const safeSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const safeGet=(k)=>{try{return localStorage.getItem(k)}catch(e){return null}};
 
 let myName = safeGet('yb_name') || '';
-let joined = false; // Защита от двойного входа
+let joined = false; 
+
+// Аварийное скрытие экрана загрузки через 5 секунд (если что-то пошло не так)
+setTimeout(() => {
+    if($('loadingScreen').style.display !== 'none'){
+        $('loadingScreen').style.opacity = '0';
+        setTimeout(() => $('loadingScreen').style.display = 'none', 500);
+    }
+}, 5000);
 
 socket.on('connect', () => {
     $('loadingScreen').style.opacity = '0';
@@ -238,6 +249,12 @@ socket.on('connect', () => {
     } else if(!myName) {
         showNameModal();
     }
+});
+
+socket.on('connect_error', () => {
+    // Если ошибка подключения, показываем экран входа, чтобы не висел "вечный спиннер"
+    $('loadingScreen').style.display = 'none';
+    showNameModal();
 });
 
 $('inviteBtn').onclick=()=>{
