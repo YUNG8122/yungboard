@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>YUNGBOARD</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- ОБНОВЛЕНА ВЕРСИЯ FontAwesome до 6.5.1, чтобы убрать ошибки из консоли -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{--p:#4f46e5;--pl:#e0e7ff;--bg:#f1f5f9;--pn:rgba(255,255,255,.9);--ps:#fff;--t:#1e293b;--tm:#64748b;--b:rgba(203,213,225,.8);--sh:0 10px 30px -10px rgba(0,0,0,.15);--d:#ef4444;--s:#10b981;--cb:#fff;--g:#94a3b8}
@@ -31,8 +32,8 @@ button:disabled{opacity:.3;cursor:not-allowed;background:0 0!important;box-shado
 #canvas{display:block;background:0 0;touch-action:none;position:absolute;top:0;left:0;z-index:2}
 #laserCanvas{display:block;background:0 0;touch-action:none;position:absolute;top:0;left:0;z-index:3;pointer-events:none}
 #objectsLayer{position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;pointer-events:none;z-index:1}
-#cursorsLayer{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}
-.remote-cursor{position:absolute;transform:translate(-2px,-2px);transition:left .1s linear,top .1s linear;will-change:left,top}
+#cursorsLayer{position:absolute;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+.remote-cursor{position:absolute;transform:translate(-2px,-2px);transition:left .1s linear,top .1s linear;will-change:left,top;z-index:9999;pointer-events:none}
 .cursor-label{position:absolute;top:22px;left:10px;padding:2px 8px;border-radius:10px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.2)}
 .swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s}
 .swatch:hover{transform:scale(1.15)}
@@ -236,7 +237,8 @@ const cursors = {
 };
 
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
-const myColor='#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+// Яркие, всегда видимые цвета для курсоров
+const myColor='hsl('+Math.floor(Math.random()*360)+', 85%, 50%)';
 let myName = safeGet('yb_name') || '';
 
 function showNameModal() { $('nameModal').style.display = 'flex'; setTimeout(() => $('nameInput').focus(), 150); }
@@ -253,6 +255,7 @@ $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') save
 
 socket.on('user_joined', name => { toast(`${name} присоединился`, 'success'); });
 
+// Отправка курсора (с троттлингом 25 раз в секунду)
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
     const now=Date.now();
@@ -306,7 +309,7 @@ function updateCam(emitCam=false){
     
     if (emitCam) {
         const now = Date.now();
-        if (now - lastCamEmit > 100) { // Троттлинг камеры (10 раз в секунду)
+        if (now - lastCamEmit > 100) {
             lastCamEmit = now;
             emit('camera_move', {offX, offY, scale});
         }
@@ -322,7 +325,6 @@ function redraw(){x.clearRect(0,0,c.width,c.height);x.save();x.translate(offX,of
 function animateLaser(){lx.clearRect(0,0,lc.width,lc.height);lasers=lasers.filter(d=>d.life>0);lasers.forEach(d=>{lx.beginPath();lx.arc(d.x,d.y,d.r,0,2*Math.PI);lx.fillStyle=`rgba(239,68,68,${d.life/100})`;lx.fill();d.life-=5;d.r+=.5;});for(let id in remoteLasers){const d=remoteLasers[id];d.life-=5;if(d.life<=0){delete remoteLasers[id];continue;}lx.beginPath();lx.arc(d.sx,d.sy,d.r,0,2*Math.PI);lx.fillStyle=`rgba(239,68,68,${d.life/100})`;lx.fill();d.r+=.5;}requestAnimationFrame(animateLaser);}animateLaser();
 socket.on('laser',d=>{remoteLasers[d.sender]={sx:d.x*scale+offX,sy:d.y*scale+offY,r:6,life:100};});
 
-// Синхронизация камеры
 socket.on('camera_move', data => {
     if (isCameraSynced && (offX !== data.offX || offY !== data.offY || scale !== data.scale)) {
         offX = data.offX; offY = data.offY; scale = data.scale;
@@ -397,7 +399,7 @@ if(tool==='pen'||tool==='highlighter'){
     const baseS=parseFloat($('brushSize').value);const l={id:strokeId,type:'pen',x1:lastX,y1:lastY,x2:p.x,y2:p.y,color:$('colorPicker').value,size:tool==='highlighter'?baseS*3:baseS,opacity:parseFloat($('opacity').value)/100,lineStyle,isHighlighter:tool==='highlighter'};
     lines.push(l);strokeLines.push(l);redraw();
     const now=Date.now();
-    if(now-lastDrawEmit>30){ lastDrawEmit=now; emit('draw',l); } // Троттлинг рисования
+    if(now-lastDrawEmit>30){ lastDrawEmit=now; emit('draw',l); } 
     lastX=p.x;lastY=p.y;
 }
 else if(draft){draft.x2=snap(p.x);draft.y2=snap(p.y);redraw();}}
@@ -406,7 +408,6 @@ else if(draft){draft.x2=snap(p.x);draft.y2=snap(p.y);redraw();}}
 window.addEventListener('mouseup',()=>{
 if(draft){lines.push(draft);emit('draw',draft);undo.push({type:'line',data:draft});redo=[];updUndo();draft=null;redraw();}
 else if(drawing&&strokeLines.length){
-    // Отправляем последний кусочек, если он не успел уйти
     if(strokeLines.length > 0) emit('draw', strokeLines[strokeLines.length-1]);
     undo.push({type:'pen',id:strokeId,data:[...strokeLines]});redo=[];updUndo();strokeLines=[];
 }
@@ -446,7 +447,6 @@ function addEm(em){const cx=(innerWidth/2-offX)/scale,cy=(innerHeight/2-offY)/sc
 
 socket.on('load_state',s=>{
     lines=s.lines||[];objs={};ol.innerHTML='';Object.values(s.objects||{}).forEach(mkObj);redraw();
-    // Применяем камеру учителя при входе
     if (s.camera) {
         offX = s.camera.offX; offY = s.camera.offY; scale = s.camera.scale;
         isCameraSynced = true;
