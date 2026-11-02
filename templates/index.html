@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>YUNGBOARD</title>
-<!-- ОБНОВЛЕНА ВЕРСИЯ FontAwesome до 6.5.1, чтобы убрать ошибки из консоли -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -35,6 +34,10 @@ button:disabled{opacity:.3;cursor:not-allowed;background:0 0!important;box-shado
 #cursorsLayer{position:absolute;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
 .remote-cursor{position:absolute;transform:translate(-2px,-2px);transition:left .1s linear,top .1s linear;will-change:left,top;z-index:9999;pointer-events:none}
 .cursor-label{position:absolute;top:22px;left:10px;padding:2px 8px;border-radius:10px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.2)}
+/* Список пользователей */
+#onlineUsers { display:flex; gap:4px; margin-left:10px; align-items:center; }
+.user-avatar { width:28px; height:28px; border-radius:50%; background:var(--p); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; border:2px solid var(--ps); box-shadow:0 2px 5px rgba(0,0,0,.2); transition: transform 0.2s; }
+.user-avatar:hover { transform: scale(1.1); z-index:10; }
 .swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s}
 .swatch:hover{transform:scale(1.15)}
 .swatch.selected{border-color:var(--p);transform:scale(1.15);box-shadow:0 0 0 2px var(--ps)}
@@ -146,6 +149,8 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 <button id="timerBtn" title="Таймер"><i class="fa-regular fa-clock"></i></button>
 <button id="themeBtn" title="Тема"><i class="fa-solid fa-moon"></i></button>
 <button id="clearBtn" class="danger" title="Очистить"><i class="fa-solid fa-trash"></i></button>
+<!-- СПИСОК ОНЛАЙН ПОЛЬЗОВАТЕЛЕЙ -->
+<div id="onlineUsers"></div>
 </div>
 </div>
 
@@ -237,7 +242,6 @@ const cursors = {
 };
 
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
-// Яркие, всегда видимые цвета для курсоров
 const myColor='hsl('+Math.floor(Math.random()*360)+', 85%, 50%)';
 let myName = safeGet('yb_name') || '';
 
@@ -253,9 +257,18 @@ if(myName) socket.emit('join',{room, name: myName}); else showNameModal();
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
 
-socket.on('user_joined', name => { toast(`${name} присоединился`, 'success'); });
+socket.on('users_update', users => {
+    const container = $('onlineUsers');
+    container.innerHTML = '';
+    Object.values(users).forEach(name => {
+        const el = document.createElement('div');
+        el.className = 'user-avatar';
+        el.textContent = name.charAt(0).toUpperCase();
+        el.title = name;
+        container.appendChild(el);
+    });
+});
 
-// Отправка курсора (с троттлингом 25 раз в секунду)
 let lastCursor=0;
 window.addEventListener('mousemove',e=>{
     const now=Date.now();
@@ -452,6 +465,7 @@ socket.on('load_state',s=>{
         isCameraSynced = true;
         updateCam(false);
     }
+    if (s.users) socket.emit('users_update', s.users); // Обновляем список при входе
 });
 socket.on('draw',d=>{lines.push(d);redraw();});
 socket.on('line_delete',id=>{lines=lines.filter(l=>l.id!==id);redraw();});
