@@ -96,7 +96,7 @@ input[type="number"]{width:45px;text-align:center;cursor:text}
 <div id="loadingScreen">
     <div class="spinner"></div>
     <h2 style="color:var(--t); margin:0 0 10px;">Подключение к серверу...</h2>
-    <p style="color:var(--tm); margin:0;">Если сервер спал, это займет до 40 секунд.</p>
+    <p style="color:var(--tm); margin:0;">Пожалуйста, подождите.</p>
 </div>
 
 <div id="nameModal" class="modal-overlay">
@@ -226,9 +226,19 @@ const emit=(ev,d)=>socket.emit(ev,{...d,room});
 const safeSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const safeGet=(k)=>{try{return localStorage.getItem(k)}catch(e){return null}};
 
+let myName = safeGet('yb_name') || '';
+let joined = false; // Защита от двойного входа
+
 socket.on('connect', () => {
     $('loadingScreen').style.opacity = '0';
     setTimeout(() => $('loadingScreen').style.display = 'none', 500);
+    // Если имя уже есть, входим. Если нет - покажем окно.
+    if(myName && !joined) {
+        joined = true;
+        socket.emit('join',{room, name: myName});
+    } else if(!myName) {
+        showNameModal();
+    }
 });
 
 $('inviteBtn').onclick=()=>{
@@ -255,17 +265,19 @@ const cursors = {
 
 const cursorsLayer=$('cursorsLayer'), remoteCursors={}, remotePos={};
 const myColor='hsl('+Math.floor(Math.random()*360)+', 85%, 50%)';
-let myName = safeGet('yb_name') || '';
 
 function showNameModal() { $('nameModal').style.display = 'flex'; setTimeout(() => $('nameInput').focus(), 150); }
+
 function saveName() {
+    if(joined) return; // Защита от повторного клика
     const val = $('nameInput').value.trim();
     myName = val || 'Гость'; safeSet('yb_name', myName);
     $('nameModal').style.display = 'none';
+    joined = true;
     socket.emit('join',{room, name: myName});
     toast(`Привет, ${myName}!`, 'success');
 }
-if(myName) socket.emit('join',{room, name: myName}); else showNameModal();
+
 $('nameSubmit').onclick = saveName;
 $('nameInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') saveName(); });
 
@@ -288,7 +300,7 @@ socket.on('users_update', users => {
                 updateCam(true);
                 toast(`Телепорт к ${name}`, 'success');
             } else {
-                toast(`Курсор ${name} не найден`, 'error');
+                toast(`Подождите, ${name} еще не двигал мышкой`, 'error');
             }
         };
         container.appendChild(el);
@@ -316,9 +328,11 @@ socket.on('cursor_move',d=>{
     }
     updCursor(d.sender);
 });
+
 socket.on('user_left',sid=>{
     if(remoteCursors[sid]){ remoteCursors[sid].remove(); delete remoteCursors[sid]; delete remotePos[sid]; }
 });
+
 function updCursor(sid){
     if(!remotePos[sid]||!remoteCursors[sid]) return;
     const el=remoteCursors[sid];
@@ -360,7 +374,6 @@ const getPos=(cx,cy)=>{const r=c.getBoundingClientRect();return{x:(cx-r.left-off
 function applyStyle(ctx,o){ctx.strokeStyle=o.color;ctx.lineWidth=o.size;ctx.globalAlpha=o.opacity??1;ctx.globalCompositeOperation=o.isHighlighter?'multiply':'source-over';if(o.isHighlighter)ctx.globalAlpha*=0.45;ctx.setLineDash(o.lineStyle==='dashed'?[o.size*3,o.size*2]:o.lineStyle==='dotted'?[o.size*.3,o.size*2]:[]);}
 function drawShape(o){x.beginPath();const closed=['rect','circle','triangle','star','diamond','hexagon'].includes(o.type);if(o.type==='rect')x.rect(o.x1,o.y1,o.x2-o.x1,o.y2-o.y1);else if(o.type==='circle')x.arc(o.x1,o.y1,Math.hypot(o.x2-o.x1,o.y2-o.y1),0,2*Math.PI);else if(o.type==='triangle'){x.moveTo((o.x1+o.x2)/2,o.y1);x.lineTo(o.x2,o.y2);x.lineTo(o.x1,o.y2);x.closePath();}else if(o.type==='arrow'){x.moveTo(o.x1,o.y1);x.lineTo(o.x2,o.y2);const a=Math.atan2(o.y2-o.y1,o.x2-o.x1),h=15+o.size*2;x.lineTo(o.x2-h*Math.cos(a-Math.PI/6),o.y2-h*Math.sin(a-Math.PI/6));x.moveTo(o.x2,o.y2);x.lineTo(o.x2-h*Math.cos(a+Math.PI/6),o.y2-h*Math.sin(a+Math.PI/6));}else if(o.type==='star'){const cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2,r=Math.hypot(o.x2-o.x1,o.y2-o.y1)/2,ir=r/2.5;for(let i=0;i<10;i++){const rr=i%2===0?r:ir,a=(Math.PI/5)*i-Math.PI/2;i===0?x.moveTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr):x.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);}x.closePath();}else if(o.type==='diamond'){const cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2;x.moveTo(cx,o.y1);x.lineTo(o.x2,cy);x.lineTo(cx,o.y2);x.lineTo(o.x1,cy);x.closePath();}else if(o.type==='hexagon'){const cx=(o.x1+o.x2)/2,cy=(o.y1+o.y2)/2,r=Math.hypot(o.x2-o.x1,o.y2-o.y1)/2;for(let i=0;i<6;i++){const a=(Math.PI/3)*i-Math.PI/6;i===0?x.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):x.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);}x.closePath();}else{x.moveTo(o.x1,o.y1);x.lineTo(o.x2,o.y2);}if(o.filled&&closed){x.fillStyle=o.color;x.fill();}x.stroke();}
 
-// Оптимизированная отрисовка (requestAnimationFrame)
 function redraw(){
     requestAnimationFrame(()=>{
         x.clearRect(0,0,c.width,c.height);x.save();x.translate(offX,offY);x.scale(scale,scale);x.lineCap='round';x.lineJoin='round';
@@ -502,30 +515,8 @@ socket.on('load_state',s=>{
         isCameraSynced = true;
         updateCam(false);
     }
-    if (s.users) {
-        const container = $('onlineUsers');
-        container.innerHTML = '';
-        Object.keys(s.users).forEach(sid => {
-            const name = s.users[sid];
-            const el = document.createElement('div');
-            el.className = 'user-avatar';
-            el.textContent = name.charAt(0).toUpperCase();
-            el.title = `Телепорт к: ${name}`;
-            el.onclick = () => {
-                const pos = remotePos[sid];
-                if(pos) {
-                    offX = innerWidth/2 - pos.x * scale;
-                    offY = innerHeight/2 - pos.y * scale;
-                    updateCam(true);
-                    toast(`Телепорт к ${name}`, 'success');
-                } else {
-                    toast(`Курсор ${name} не найден`, 'error');
-                }
-            };
-            container.appendChild(el);
-        });
-    }
 });
+
 socket.on('draw',d=>{lines.push(d);redraw();});
 socket.on('line_delete',id=>{lines=lines.filter(l=>l.id!==id);redraw();});
 socket.on('object_create',d=>{if(!objs[d.id])mkObj(d);});
