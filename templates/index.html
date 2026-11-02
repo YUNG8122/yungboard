@@ -232,7 +232,6 @@ let joined = false; // Защита от двойного входа
 socket.on('connect', () => {
     $('loadingScreen').style.opacity = '0';
     setTimeout(() => $('loadingScreen').style.display = 'none', 500);
-    // Если имя уже есть, входим. Если нет - покажем окно.
     if(myName && !joined) {
         joined = true;
         socket.emit('join',{room, name: myName});
@@ -269,7 +268,7 @@ const myColor='hsl('+Math.floor(Math.random()*360)+', 85%, 50%)';
 function showNameModal() { $('nameModal').style.display = 'flex'; setTimeout(() => $('nameInput').focus(), 150); }
 
 function saveName() {
-    if(joined) return; // Защита от повторного клика
+    if(joined) return; 
     const val = $('nameInput').value.trim();
     myName = val || 'Гость'; safeSet('yb_name', myName);
     $('nameModal').style.display = 'none';
