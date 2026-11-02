@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
-# Убираем async_mode='gevent', используем стандартный threading
+# Используем стандартный threading, он встроен в Python и работает идеально
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 ROOMS = {}
@@ -13,7 +13,6 @@ ROOMS = {}
 def index(): 
     return render_template('index.html')
 
-# Фоновая задача: не дает серверу и Cloudflare уснуть
 def keep_alive():
     while True:
         socketio.sleep(25)
@@ -27,15 +26,12 @@ def on_join(data):
     join_room(room)
     
     if room not in ROOMS:
-        ROOMS[room] = {
-            'lines': [], 
-            'objects': {}, 
-            'camera': {'offX':0, 'offY':0, 'scale':1}, 
-            'users': {}
-        }
+        ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}, 'users': {}}
     
+    # Записываем пользователя
     ROOMS[room]['users'][request.sid] = name
     
+    # Отправляем данные
     emit('load_state', {
         'lines': ROOMS[room]['lines'],
         'objects': ROOMS[room]['objects'],
@@ -43,13 +39,23 @@ def on_join(data):
         'users': ROOMS[room]['users']
     }, to=request.sid)
     
+    # Обновляем список у всех
     emit('users_update', ROOMS[room]['users'], to=room)
 
+@socketio.on('disconnect')
+def on_disconnect():
+    # Жестко удаляем пользователя при выходе, чтобы не было фантомов
+    for room in list(ROOMS.keys()):
+        if request.sid in ROOMS[room]['users']:
+            del ROOMS[room]['users'][request.sid]
+            emit('users_update', ROOMS[room]['users'], to=room)
+            break
+
+# Остальные обработчики оставляем без изменений, они простые
 @socketio.on('camera_move')
 def on_camera_move(data):
     room = data.get('room')
-    if room in ROOMS: 
-        ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
+    if room in ROOMS: ROOMS[room]['camera'] = {'offX': data['offX'], 'offY': data['offY'], 'scale': data['scale']}
     emit('camera_move', data, to=room, include_self=False)
 
 @socketio.on('cursor_move')
@@ -57,27 +63,14 @@ def on_cursor_move(data):
     data['sender'] = request.sid
     emit('cursor_move', data, to=data['room'], include_self=False)
 
-@socketio.on('laser')
-def on_laser(data):
-    data['sender'] = request.sid
-    emit('laser', data, to=data['room'], include_self=False)
-
 @socketio.on('draw')
 def on_draw(data):
-    if data['room'] in ROOMS: 
-        ROOMS[data['room']]['lines'].append(data)
+    if data['room'] in ROOMS: ROOMS[data['room']]['lines'].append(data)
     emit('draw', data, to=data['room'], include_self=False)
-
-@socketio.on('line_delete')
-def on_line_delete(data):
-    if data['room'] in ROOMS: 
-        ROOMS[data['room']]['lines'] = [l for l in ROOMS[data['room']]['lines'] if l.get('id') != data['id']]
-    emit('line_delete', data['id'], to=data['room'], include_self=False)
 
 @socketio.on('object_create')
 def on_obj_create(data):
-    if data['room'] in ROOMS: 
-        ROOMS[data['room']]['objects'][data['id']] = data
+    if data['room'] in ROOMS: ROOMS[data['room']]['objects'][data['id']] = data
     emit('object_create', data, to=data['room'], include_self=False)
 
 @socketio.on('object_update')
@@ -104,22 +97,6 @@ def on_clear_all(data):
         ROOMS[data['room']]['lines'] = []
         ROOMS[data['room']]['objects'] = {}
     emit('clear_all', {}, to=data['room'], include_self=False)
-
-@socketio.on('load_project')
-def on_load_project(data):
-    if data['room'] in ROOMS:
-        ROOMS[data['room']]['lines'] = data.get('lines', [])
-        ROOMS[data['room']]['objects'] = {o['id']: o for o in data.get('objects', [])}
-        emit('load_state', {'lines': ROOMS[data['room']]['lines'], 'objects': ROOMS[data['room']]['objects'], 'camera': ROOMS[data['room']]['camera'], 'users': ROOMS[data['room']]['users']}, to=data['room'])
-
-@socketio.on('disconnect')
-def on_disconnect():
-    for room, data in ROOMS.items():
-        if request.sid in data['users']:
-            del data['users'][request.sid]
-            emit('users_update', data['users'], to=room)
-            break
-    emit('user_left', request.sid, broadcast=True)
 
 if __name__ == '__main__':
     socketio.start_background_task(keep_alive)
