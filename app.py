@@ -1,11 +1,13 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
-# Используем стандартный threading, он не падает на Python 3.14
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 ROOMS = {} 
 
@@ -13,7 +15,6 @@ ROOMS = {}
 def index(): 
     return render_template('index.html')
 
-# Не дает серверу уснуть и разрывать WebSocket
 def keep_alive():
     while True:
         socketio.sleep(25)
@@ -25,7 +26,6 @@ def on_join(data):
     room = data.get('room', 'main')
     name = data.get('name', 'Гость')
     join_room(room)
-    
     if room not in ROOMS:
         ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}, 'users': {}}
     
@@ -37,12 +37,10 @@ def on_join(data):
         'camera': ROOMS[room]['camera'],
         'users': ROOMS[room]['users']
     }, to=request.sid)
-    
     emit('users_update', ROOMS[room]['users'], to=room)
 
 @socketio.on('disconnect')
 def on_disconnect():
-    # Полностью удаляем пользователя, чтобы не было фантомов
     for room in list(ROOMS.keys()):
         if request.sid in ROOMS[room]['users']:
             del ROOMS[room]['users'][request.sid]
