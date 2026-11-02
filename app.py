@@ -6,7 +6,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yungboard'
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=10e6)
 
-ROOMS = {} # {room: {'lines':[], 'objects':{}, 'camera':{'offX':0,'offY':0,'scale':1}}}
+ROOMS = {}
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -18,7 +18,6 @@ def on_join(data):
     if room not in ROOMS:
         ROOMS[room] = {'lines': [], 'objects': {}, 'camera': {'offX':0, 'offY':0, 'scale':1}}
     
-    # Отправляем новому пользователю текущее состояние и положение камеры
     emit('load_state', {
         'lines': ROOMS[room]['lines'],
         'objects': ROOMS[room]['objects'],
